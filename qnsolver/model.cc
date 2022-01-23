@@ -28,7 +28,6 @@
 #include <lqx/Program.h>
 #include <mva/multserv.h>
 #include <mva/mva.h>
-#include "boundsmodel.h"
 #include "closedmodel.h"
 #include "model.h"
 #include "openmodel.h"
@@ -40,25 +39,34 @@ bool debug_flag = false;
 
 Model::Model( BCMP::JMVA_Document& input, Model::Solver solver, const std::string& output_file_name )
     : _model(input.model()), _solver(solver),
-      _result(false), _input(input), _output_file_name(output_file_name), _closed_model(nullptr), _open_model(nullptr), _bounds_model(nullptr), Q()
+      Q(), _result(false), _input(input), _output_file_name(output_file_name), _closed_model(nullptr), _open_model(nullptr)
 {
     const size_t M = _model.n_stations(type());	// Size based on type.
+    if ( M == 0 ) {
+	_result = false;
+	return;
+    }
+
     Q.resize(M);
 }
 
 
 Model::Model( BCMP::JMVA_Document& input, Model::Solver solver )
     : _model(input.model()), _solver(solver),
-      _result(false), _input(input), _output_file_name(), _closed_model(nullptr), _open_model(nullptr), _bounds_model(nullptr), Q()
+      Q(), _result(false), _input(input), _output_file_name(), _closed_model(nullptr), _open_model(nullptr)
 {
     const size_t M = _model.n_stations(type());	// Size based on type.
+    if ( M == 0 ) {
+	_result = false;
+	return;
+    }
+
     Q.resize(M);
 }
 
 
 Model::~Model()
 {
-    if ( _bounds_model ) delete _bounds_model;
     if ( _closed_model ) delete _closed_model;
     if ( _open_model ) delete _open_model;
 }
@@ -72,25 +80,20 @@ Model::~Model()
 bool
 Model::construct()
 {
-    _result = true;
     try {
+	_result = true;
 	std::for_each( chains().begin(), chains().end(), CreateChainIndex( *this, type() ) );
 	std::for_each( stations().begin(), stations().end(), CreateStationIndex( *this, type() ) );
 	if ( isParent() ) {
-	    if ( _solver == Solver::BOUNDS ) {
-		_bounds_model = new BoundsModel( *this, _input );
-		_bounds_model->construct();
-	    } else {
-		/* Create open and closed models */
-		std::for_each( stations().begin(), stations().end(), InstantiateStation( *this ) );
-		if ( _model.n_stations(BCMP::Model::Chain::Type::CLOSED) > 0 ) {
-		    _closed_model = new ClosedModel( *this, _input, _solver );
-		    _closed_model->construct();
-		}
-		if ( _model.n_stations(BCMP::Model::Chain::Type::OPEN) > 0 ) {
-		    _open_model = new OpenModel( *this, _input );
-		    _open_model->construct();
-		}
+	    /* Create open and closed models */
+	    std::for_each( stations().begin(), stations().end(), InstantiateStation( *this ) );
+	    if (  _model.n_stations(BCMP::Model::Chain::Type::CLOSED) > 0 ) {
+		_closed_model = new ClosedModel( *this, _input, _solver );
+		_closed_model->construct();
+	    }
+	    if (  _model.n_stations(BCMP::Model::Chain::Type::OPEN) > 0 ) {
+		_open_model = new OpenModel( *this, _input );
+		_open_model->construct();
 	    }
 	}
     }
@@ -121,33 +124,39 @@ Model::instantiate()
 }
 
 
+/*
+ * For each chain, find the station with the highest demand, and find the total demand.
+ * Highest demand gives throughput bound, total demand gives response bound.
+ */
+
+void
+Model::bounds()
+{
+    std::map<std::string,BCMP::Model::Bound> bounds;
+    for ( BCMP::Model::Chain::map_t::const_iterator chain = chains().begin(); chain != chains().end(); ++chain ) {
+	bounds.emplace( chain->first, BCMP::Model::Bound(*chain,stations()) );
+    }
+}
+
+
 bool
 Model::solve()
 {
     bool ok = true;
-    LQX::Program * lqx = _input.getLQXProgram();
-    std::vector<LQX::SyntaxTreeNode *> * program = _input.getSPEXProgram();
-    expr_list result_vars;		/* needs to be scoped here, else println args are cleared */
-    if ( program != nullptr ) {
-	if ( lqx != nullptr ) {
-	    LQIO::solution_error( LQIO::ERR_LQX_SPEX, _input.getInputFileName().c_str() );
-	    return false;
-	}
+    if ( _input.hasSPEX() && _input.getLQXProgram() != nullptr ) {
+	std::vector<LQX::SyntaxTreeNode *> * program = _input.getLQXProgram();
 		
 	/* Get the result variables and convert to an expression list for construct */
 	const std::vector<LQIO::Spex::var_name_and_expr>& result_variables = LQIO::Spex::result_variables();
+	expr_list result_vars;
 	for ( std::vector<LQIO::Spex::var_name_and_expr>::const_iterator result = result_variables.begin(); result != result_variables.end(); ++result ) {
 	    result_vars.push_back( result->second );
 	}
 	if ( !LQIO::spex.construct_program( program, &result_vars, nullptr, _input.getGNUPlotProgram() ) ) return false;
-	lqx = LQX::Program::loadRawProgram( program );
-    }
-
-    if ( lqx != nullptr ) {
+	LQX::Program * lqx = LQX::Program::loadRawProgram( program );
 	_input.registerExternalSymbolsWithProgram( lqx );
 	if ( print_spex ) {
 	    lqx->print( std::cerr );
-	    std::cerr << std::endl;
 	}
 	FILE * output = nullptr;
 	LQX::Environment * environment = lqx->getEnvironment();
@@ -210,9 +219,6 @@ Model::compute()
     try {
 	instantiate();
 	
-	if ( _bounds_model ) {
-	    _bounds_model->solve();
-	}
 	if ( _closed_model ) {
 	    if ( _open_model ) {
 		_open_model->convert( _closed_model );
@@ -248,9 +254,6 @@ Model::compute()
 void
 Model::saveResults()
 {
-    if ( _bounds_model ) {
-	_bounds_model->saveResults();
-    }
     if ( _closed_model ) {
 	_closed_model->saveResults();
     }
@@ -484,6 +487,8 @@ Model::print( std::ostream& output ) const
     output.fill(' ');
     output << __separator << std::setw(__width) << " " << Model::blankline() << __separator << std::endl;
     for ( BCMP::Model::Station::map_t::const_iterator mi = stations().begin(); mi != stations().end(); ++mi ) {
+	const size_t m = _index.m.at(mi->first);
+
 	const BCMP::Model::Station::Class::map_t& results = mi->second.classes();
 	const BCMP::Model::Station::Class sum = std::accumulate( std::next(results.begin()), results.end(), results.begin()->second, &BCMP::Model::Station::sumResults ).deriveResidenceTime();
 	const double service = sum.throughput() > 0 ? sum.utilization() / sum.throughput() : 0.0;
@@ -497,9 +502,15 @@ Model::print( std::ostream& output ) const
 	    for ( BCMP::Model::Station::Class::map_t::const_iterator result = results.begin(); result != results.end(); ++result ) {
 		if (result->second.throughput() == 0 ) continue;
 		output << __separator << std::setw(__width) <<  ( "(" + result->first + ")");
-		const double service_time = LQIO::DOM::to_double( *mi->second.classAt(result->first).service_time() );
-		const double visits = LQIO::DOM::to_double( *mi->second.classAt(result->first).visits() );
-		print( output, service_time * visits, result->second );
+		const BCMP::Model::Chain& chain = _model.chainAt(result->first);
+		if ( chain.isClosed() ) {
+		    const size_t k = indexAt(BCMP::Model::Chain::Type::CLOSED,result->first);
+		    print(output,Q[m]->S(k),result->second);
+		} else {
+		    static const size_t k = 0;
+		    const size_t e = indexAt(BCMP::Model::Chain::Type::OPEN,result->first);
+		    print(output,Q[m]->S(e,k),result->second);
+		}
 		output << __separator << std::endl;
 	    }
 	}
