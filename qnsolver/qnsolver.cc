@@ -1,5 +1,5 @@
 /*
- * $Id: qnsolver.cc 15429 2022-02-04 23:04:05Z greg $
+ * $Id: qnsolver.cc 15395 2022-01-27 02:04:58Z greg $
  */
 
 #include "config.h"
@@ -36,7 +36,7 @@ const struct option longopts[] =
     { "plot-queue-length",			required_argument,	0, 'q' },
     { "plot-response-time",			no_argument,		0, 'r' },
     { "plot-throughput",			optional_argument,	0, 't' },
-    { "plot-utilization",			optional_argument,	0, 'u' },
+    { "plot-utilization",			required_argument,	0, 'u' },
     { "plot-waiting-time",			required_argument,	0, 'w' },
     { "multiserver",				required_argument,	0, 'm' },
     { LQIO::DOM::Pragma::_force_multiserver_,	no_argument,		0, 'F' },
@@ -56,7 +56,7 @@ static std::string opts = "bdefhlo:rstvxQSX";
 #endif
 
 const static std::map<const std::string,const std::string> opthelp  = {
-    { "bounds",		    			"Use the bounds solver." },
+    { "bounds",		    			"Compute bounds" },
     { LQIO::DOM::Pragma::_exact_,		"Use Exact MVA." },
     { LQIO::DOM::Pragma::_schweitzer_,		"Use Bard-Schweitzer approximate MVA." },
     { LQIO::DOM::Pragma::_linearizer_,		"Use Linearizer." },
@@ -83,6 +83,7 @@ static bool verbose_flag = false;		/* Print steps		*/
 static bool print_qnap2 = false;		/* Export to qnap2.  		*/
 static bool print_gnuplot = false;		/* Output WhatIf as gnuplot	*/
 static BCMP::Model::Result::Type plot_type = BCMP::Model::Result::Type::THROUGHPUT;
+static std::string plot_arg;
 
 /* Globals */
 
@@ -94,12 +95,11 @@ BCMP::JMVA_Document* __input = nullptr;
 
 /* Local procedures */
 
-static void exec( const std::string& input_file_name, const std::string& output_file_name, const std::string& );
+static void exec( const std::string& input_file_name, const std::string& output_file_name );
 
 int main (int argc, char *argv[])
 {
     std::string output_file_name;
-    std::string plot_arg;
 
     program_name = basename( argv[0] );
 
@@ -122,7 +122,6 @@ int main (int argc, char *argv[])
 
 	switch( c ) {
 	case 'b':
-	    pragmas.insert(LQIO::DOM::Pragma::_mva_,LQIO::DOM::Pragma::_bounds_);
 	    break;
 
 	case 'd':
@@ -235,10 +234,10 @@ int main (int argc, char *argv[])
 
 #if HAVE_EXPAT_H
     if ( optind == argc ) {
-	exec( "-", output_file_name, plot_arg );
+	exec( "-", output_file_name );
     } else {
         for ( ; optind < argc; ++optind ) {
-	    exec( argv[optind], output_file_name, plot_arg );
+	    exec( argv[optind], output_file_name );
 	}
     }
 #else
@@ -252,10 +251,9 @@ int main (int argc, char *argv[])
  * Run the solver.
  */
 
-static void exec( const std::string& input_file_name, const std::string& output_file_name, const std::string& plot_arg )
+static void exec( const std::string& input_file_name, const std::string& output_file_name )
 {
     static std::map<const Model::Solver,const std::string> solver_name = {
-	{ Model::Solver::BOUNDS,		"bounds" },
 	{ Model::Solver::EXACT_MVA,		LQIO::DOM::Pragma::_exact_ },
 	{ Model::Solver::BARD_SCHWEITZER,	LQIO::DOM::Pragma::_schweitzer_ },
 	{ Model::Solver::LINEARIZER,		LQIO::DOM::Pragma::_linearizer_ },

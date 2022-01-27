@@ -1,5 +1,5 @@
 /* -*- c++ -*-
- * $Id: bcmp_document.cpp 15425 2022-02-04 13:32:11Z greg $
+ * $Id: bcmp_document.cpp 15394 2022-01-26 23:21:12Z greg $
  *
  * Read in XML input files.
  *
@@ -137,16 +137,6 @@ namespace BCMP {
 	return LQIO::DOM::BCMP_to_LQN( *this, dom ).convert();
     }
 
-
-    /*
-     * Plotting will insert new variables, so erase all those currently set.
-     */
-
-    void
-    Model::clearAllResultVariables()
-    {
-	std::for_each( stations().begin(), stations().end(), &Station::clear_all_result_variables );
-    }
 
     std::ostream&
     Model::print( std::ostream& output ) const
@@ -343,15 +333,6 @@ namespace BCMP {
     }
 
 
-    void
-    Model::Station::clear_all_result_variables( BCMP::Model::Station::pair_t& mi )
-    {
-	Model::Station& m = mi.second;
-	m.resultVariables().clear();
-	std::for_each( m.classes().begin(), m.classes().end(), &Model::Station::Class::clear_all_result_variables );
-    }
-
-
     Model::Station::Class::map_t
     Model::Station::select::operator()( const Class::map_t& augend, const Station::pair_t& m ) const
     {
@@ -487,18 +468,6 @@ namespace BCMP {
     /*			           Bound				*/
     /* ---------------------------------------------------------------- */
 
-    /*
-     * Find the demand at a station that forms queues.  Adjust for
-     * multiplicity.
-     */
-
-    /* static */ double
-    Model::Bound::D( const Model::Station& m, const Model::Chain::pair_t& chain )
-    {
-	return demand( m, chain.first );
-    }
-
-
     Model::Bound::Bound( const Model::Chain::pair_t& chain, const Model::Station::map_t& stations )
 	: _chain(chain), _stations(stations), _D_max(0.0), _D_sum(0.0), _Z(0.0)
     {
@@ -524,38 +493,6 @@ namespace BCMP {
 	else return 0.0;
     }
 
-
-    /*
-     * Is this station the one with the higest demand?
-     */
-    
-    bool
-    Model::Bound::is_D_max( const Model::Station& m ) const
-    {
-	return demand( m, chain() ) == _D_max;
-    }
-
-
-    /*
-     * Find the demand at a station that forms queues.  Adjust for
-     * multiplicity.
-     */
-
-    double
-    Model::Bound::demand( const Model::Station& m, const std::string& chain )
-    {
-	if ( (   m.type() != Model::Station::Type::LOAD_INDEPENDENT
-	      && m.type() != Model::Station::Type::MULTISERVER)
-	     || !m.hasClass( chain ) ) return 0.0;
-	const Model::Station::Class& k = m.classAt( chain );
-	double demand = to_double( *k.visits() ) * to_double( *k.service_time() );
-	if ( m.type() == Model::Station::Type::MULTISERVER ) {
-	    demand = demand / to_double( *m.copies() );
-	}
-	return demand;
-    }
-
-
     /*
      * Find the largest demand at a station that forms queues.  Adjust
      * for multiplicity.
@@ -564,14 +501,19 @@ namespace BCMP {
     double
     Model::Bound::max_demand::operator()( double a1, const Model::Station::pair_t& m2 )
     {
-	return std::max( a1,  Bound::demand( m2.second, _class ) );
+	const Model::Station& m = m2.second;
+	if ( (    m.type() != Model::Station::Type::LOAD_INDEPENDENT
+	       && m.type() != Model::Station::Type::MULTISERVER )
+	     || !m.hasClass( _class ) ) return a1;
+	const Model::Station::Class& k = m.classAt( _class );
+	double demand = to_double( *k.visits() ) * to_double( *k.service_time() );
+	if ( m.type() == Model::Station::Type::MULTISERVER ) {
+	    demand = demand / to_double( *m.copies() );
+	}
+	return std::max( a1, demand );
     }
 
 
-
-    /*
-     * Add up all of the demand for _class.  Do not adjust for multiplicity.
-     */
 
     double
     Model::Bound::sum_demand::operator()( double a1, const Model::Station::pair_t& m2 )
