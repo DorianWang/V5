@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
-# $Id: configure.ac 15448 2022-03-05 01:05:41Z greg $
+# $Id: configure.ac 15419 2022-02-01 17:50:28Z greg $
 # ------------------------------------------------------------------------
-AC_INIT([lqns],[5.25],[greg@sce.carleton.ca])
+AC_INIT([lqns],[5.24],[greg@sce.carleton.ca])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIRS([config])
 AC_CONFIG_HEADERS([config.h])
@@ -47,9 +47,6 @@ fi
 AM_CONDITIONAL([HAVE_PS2PDF], test -n "$XPS2PDF")
 AC_CHECK_PROGS(XSVN, svn)
 AM_CONDITIONAL([HAVE_SVN], test -n "$XSVN")
-
-AC_CHECK_PROGS(XFIG2DEV, fig2dev)
-AM_CONDITIONAL([HAVE_FIG2DEV], test -n "$XFIG2DEV")
 
 AC_ARG_ENABLE([latex-doc],
     [AS_HELP_STRING([--disable-latex-doc], [disable building the PDF
