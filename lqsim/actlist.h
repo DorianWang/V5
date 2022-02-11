@@ -60,7 +60,7 @@ public:
 
 
     typedef std::vector<Activity *>::const_iterator const_iterator;
-    
+
     struct Collect
     {
 	typedef double (Activity::*fptr)( ActivityList::Collect& ) const;
@@ -72,12 +72,12 @@ public:
 	bool can_reply;
 	fptr _f;
     };
-	
+
     ActivityList( Type type, LQIO::DOM::ActivityList* dom )
 	: _type(type),
 	  _dom(dom),
 	  _list()
-	{}
+	{FUNC_NAME_OUT;}
     virtual ~ActivityList() {}
 
     size_t size() const { return _list.size(); }
@@ -87,10 +87,10 @@ public:
     Activity * back() const { return _list.back(); }
     ActivityList::const_iterator begin() { return _list.begin(); }
     ActivityList::const_iterator end() { return _list.end(); }
-    
+
     LQIO::DOM::ActivityList * get_DOM() const { return _dom; }
     const std::string get_name() const;
-    
+
     virtual ActivityList& configure() { return *this; }
     virtual ActivityList& push_back( Activity * activity ) { _list.push_back( activity ); return *this; }
     virtual double collect( std::deque<Activity *>& activity_stack, ActivityList::Collect& data ) const = 0;
@@ -135,7 +135,7 @@ public:
 
     virtual double find_children( std::deque<Activity *>& activity_stack, std::deque<AndForkActivityList *>& fork_stack, const Entry * ep );
     virtual double collect( std::deque<Activity *>& activity_stack, ActivityList::Collect& data ) const;
-    
+
 private:
     OutputActivityList * _join;		/* Link to fork from join.	*/
 };
@@ -148,9 +148,9 @@ public:
 	: ForkActivityList(type,dom),
 	  _prob()
 	{}
-    
+
     double get_prob_at( size_t ix ) const { return _prob[ix]; }
-    
+
     virtual OrForkActivityList& push_back( Activity * activity );
     virtual OrForkActivityList& configure();
     virtual double find_children( std::deque<Activity *>& activity_stack, std::deque<AndForkActivityList *>& fork_stack, const Entry * ep );
@@ -172,7 +172,7 @@ public:
     AndForkActivityList& initialize();
     virtual AndForkActivityList& configure();
     unsigned int get_visits() const { return _visits; }
-    
+
     virtual double find_children( std::deque<Activity *>& activity_stack, std::deque<AndForkActivityList *>& fork_stack, const Entry * ep );
     virtual void fork_backtrack( std::deque<AndForkActivityList *>&, std::deque<AndJoinActivityList *>&, std::set<AndForkActivityList *>& );
     virtual double collect( std::deque<Activity *>& activity_stack, ActivityList::Collect& data ) const;
@@ -194,7 +194,7 @@ public:
     Activity * get_exit() const { return _exit; }
     double get_total() const { return _total; }
     double get_count_at( size_t ix ) const { return _count[ix]; }
-    
+
     virtual LoopActivityList& push_back( Activity * activity );
     LoopActivityList& end_list( Activity * activity ) { _exit = activity; return *this; }
     virtual LoopActivityList& configure();
@@ -216,10 +216,10 @@ public:
 	: ActivityList(type,dom),
 	  _next(nullptr)
 	{}
-	  
+
     InputActivityList * get_next() const { return _next; }
     OutputActivityList& set_next( InputActivityList * list ) { _next = list; return *this; }
-    
+
     virtual double find_children( std::deque<Activity *>& activity_stack, std::deque<AndForkActivityList *>& fork_stack, const Entry * ep );
     virtual void join_backtrack( std::deque<AndForkActivityList *>&, std::deque<AndJoinActivityList *>&, std::set<AndForkActivityList *>& );
     virtual double collect( std::deque<Activity *>& activity_stack, ActivityList::Collect& data ) const;
@@ -238,7 +238,7 @@ private:
     private:
 	static std::string fold( const std::string& s1, const Activity * a2 );
     };
-    
+
 public:
     enum class Join
     {

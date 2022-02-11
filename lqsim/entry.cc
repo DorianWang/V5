@@ -92,7 +92,7 @@ Entry::configure()
 	std::deque<Activity *> activity_stack;
 	std::deque<AndForkActivityList *> fork_stack;
 	double n_replies = 0.0;
-	    
+
 	if ( _activity ) {
 	    _activity->find_children( activity_stack, fork_stack, this );
 	    ActivityList::Collect data( this, &Activity::count_replies );
@@ -123,7 +123,7 @@ Entry::configure()
 	}
 
     } else {
-	
+
 	/* link phases */
 
 	for ( std::vector<Activity>::iterator phase = _phase.begin(); phase != _phase.end(); ++phase ) {
@@ -142,7 +142,7 @@ Entry::configure()
     }
 
     _active.assign( MAX_PHASES, 0 );
-	
+
     if ( (is_signal() || is_wait()) && task()->type() != Task::Type::SEMAPHORE ) {
 	LQIO::solution_error( LQIO::ERR_NOT_SEMAPHORE_TASK, task()->name(),
 			      (is_signal() ? "signal" : "wait"),
@@ -159,10 +159,10 @@ Entry::configure()
 				  (is_w_lock() ? "w_lock" : "w_unlock"),
 				  name() );
 	}
-    } 
+    }
 
     /* forwarding component */
-			
+
     if ( is_rendezvous() ) {
 	_fwd.configure( get_DOM(), false );
     }
@@ -178,13 +178,15 @@ Entry::configure()
 Entry&
 Entry::initialize()
 {
+   FUNC_NAME_OUT
     if ( debug_flag ) {
 	print_debug_info();
     }
-		
+
     _join_list = nullptr;		/* Reset */
-    
+
     r_cycle.init( SAMPLE, "Entry %-11.11s  - Cycle Time      ", name() );
+    printf("After result_t init\n");
 
     switch ( task()->type() ) {
     case Task::Type::CLIENT:
@@ -192,6 +194,7 @@ Entry::initialize()
 	break;
 
     case Task::Type::SEMAPHORE:
+       printf("Is semaphore\n");
 	if ( is_signal() ) {
 	    _port = dynamic_cast<const Semaphore_Task *>(task())->signal_task()->std_port();
 	} else if ( is_wait() ) {
@@ -202,31 +205,33 @@ Entry::initialize()
 	break;
 
     default:
+       printf("Is default\n");
 	_port = task()->std_port();
 	break;
     }
 
+    printf("Ready to initialize phases\n");
     for ( std::vector<Activity>::iterator phase = _phase.begin(); phase != _phase.end(); ++phase ) {
 	phase->initialize();
     }
-    
+
     /* forwarding component */
-			
+
     if ( is_rendezvous() ) {
 	_fwd.initialize( name() );
     }
-
+      printf("Entry init complete\n");
     return *this;
 }
 
 
-bool 
+bool
 Entry::is_regular() const
 {
     return get_DOM()->getEntryType() == LQIO::DOM::Entry::Type::STANDARD;
 }
 
-bool 
+bool
 Entry::is_activity() const
 {
     return get_DOM()->getEntryType() == LQIO::DOM::Entry::Type::ACTIVITY;
@@ -238,40 +243,40 @@ bool Entry::is_semaphore() const
 }
 
 bool Entry::is_signal() const
-{ 
+{
     return get_DOM()->getSemaphoreFlag() == LQIO::DOM::Entry::Semaphore::SIGNAL;
 }
 
 bool Entry::is_wait() const
-{ 
+{
     return get_DOM()->getSemaphoreFlag() == LQIO::DOM::Entry::Semaphore::WAIT;
 }
 
-bool 
+bool
 Entry::is_rwlock() const
 {
     return get_DOM()->getRWLockFlag() != LQIO::DOM::Entry::RWLock::NONE;
 }
 
-bool 
+bool
 Entry::is_r_unlock() const
 {
     return get_DOM()->getRWLockFlag() == LQIO::DOM::Entry::RWLock::READ_UNLOCK;
 }
 
-bool 
+bool
 Entry::is_r_lock() const
 {
     return get_DOM()->getRWLockFlag() == LQIO::DOM::Entry::RWLock::READ_LOCK;
 }
 
-bool 
+bool
 Entry::is_w_unlock() const
 {
     return get_DOM()->getRWLockFlag() == LQIO::DOM::Entry::RWLock::WRITE_UNLOCK;
 }
 
-bool 
+bool
 Entry::is_w_lock() const
 {
     return get_DOM()->getRWLockFlag() == LQIO::DOM::Entry::RWLock::WRITE_LOCK;
@@ -306,7 +311,7 @@ Entry::test_and_set( LQIO::DOM::Entry::Type type )
 }
 
 bool
-Entry::test_and_set_recv( Type recv ) 
+Entry::test_and_set_recv( Type recv )
 {
     if ( _recv != Type::NONE && _recv != recv ) {
 	input_error2( LQIO::ERR_OPEN_AND_CLOSED_CLASSES, name() );
@@ -318,26 +323,26 @@ Entry::test_and_set_recv( Type recv )
 }
 
 bool
-Entry::test_and_set_semaphore( LQIO::DOM::Entry::Semaphore sema ) 
+Entry::test_and_set_semaphore( LQIO::DOM::Entry::Semaphore sema )
 {
     const bool rc = get_DOM()->entrySemaphoreTypeOk( sema );
     if ( !rc ) {
 	input_error2( LQIO::ERR_MIXED_SEMAPHORE_ENTRY_TYPES, name() );
-    } 
+    }
     return rc;
 }
 
 bool
-Entry::test_and_set_rwlock( LQIO::DOM::Entry::RWLock rw ) 
+Entry::test_and_set_rwlock( LQIO::DOM::Entry::RWLock rw )
 {
     const bool rc = get_DOM()->entryRWLockTypeOk( rw );
     if ( !rc ) {
 	input_error2( LQIO::ERR_MIXED_RWLOCK_ENTRY_TYPES, name() );
-    } 
+    }
     return rc;
 }
 
-Entry& 
+Entry&
 Entry::set_DOM( unsigned p, LQIO::DOM::Phase* phaseInfo )
 {
     if (phaseInfo == nullptr) return *this;
@@ -347,7 +352,7 @@ Entry::set_DOM( unsigned p, LQIO::DOM::Phase* phaseInfo )
 }
 
 
-Entry& 
+Entry&
 Entry::add_forwarding( Entry* to_entry, LQIO::DOM::Call * call )
 {
     if ( !to_entry->test_and_set_recv( Entry::Type::RENDEZVOUS ) ) return *this;
@@ -384,7 +389,7 @@ Entry::reset_stats()
     for_each( _phase.begin(), _phase.end(), Exec<Activity>( &Activity::reset_stats ) );
 
     /* Forwarding */
-	    
+
     if ( is_rendezvous() ) {
 	_fwd.reset_stats();
     }
@@ -393,7 +398,7 @@ Entry::reset_stats()
 
 
 Entry&
-Entry::insertDOMResults() 
+Entry::insertDOMResults()
 {
     double sum_cycle          = 0.0;
     double sum_cycle_var      = 0.0;
@@ -413,7 +418,7 @@ Entry::insertDOMResults()
 
     for ( unsigned p = 1; p <= task()->max_phases(); ++p ) {
 	Activity * phase = &_phase[p-1];
-	if ( !is_activity() ) { 
+	if ( !is_activity() ) {
 	    if ( phase->is_specified() ) {
 		phase->insertDOMResults();
 	    }
@@ -441,7 +446,7 @@ Entry::insertDOMResults()
     /*
      * Service times.
      */
-	    
+
     if ( is_activity() ) {
 	for ( unsigned p = 1; p <= 2; ++p ) {
 	    Activity * phase = &_phase[p-1];
@@ -469,13 +474,13 @@ Entry::insertDOMResults()
     if ( number_blocks > 1 ) {
 	_dom->setResultThroughputVariance(throughput_variance())
 	    .setResultUtilizationVariance(sum_task_util_var)
-	    .setResultProcessorUtilizationVariance(sum_proc_util_var);	
+	    .setResultProcessorUtilizationVariance(sum_proc_util_var);
     }
 
     if ( sum_cycle > 0.0 ) {
 	_dom->setResultSquaredCoeffVariation(sum_cycle_var/square(sum_cycle));
     }
-	      
+
     _fwd.insertDOMResults();
 
     /* Open arrivals are done in Task::PseudoTask */
@@ -555,8 +560,8 @@ Entry::minimum_service_time() const
  * The DOM for the pseudo entry is the DOM for the actual entry.
  */
 
-Pseudo_Entry::Pseudo_Entry( LQIO::DOM::Entry * dom, Task * task ) 
-    : Entry (dom,task), _name(task->name()) 
+Pseudo_Entry::Pseudo_Entry( LQIO::DOM::Entry * dom, Task * task )
+    : Entry (dom,task), _name(task->name())
 {
 }
 
@@ -612,7 +617,7 @@ Pseudo_Entry::insertDOMResults()
 Entry *
 Entry::add( LQIO::DOM::Entry* domEntry, Task * task )
 {
-    Entry * ep = 0;	
+    Entry * ep = 0;
     if ( Entry::__entries.size() >= MAX_PORTS ) {
 	input_error2( LQIO::ERR_TOO_MANY_X, "entries", MAX_PORTS );
     } else {
@@ -646,7 +651,7 @@ Entry::add_open_arrival_task()
     (void) sprintf( task_name, "(%s)", name() );
     Task * cp = new Pseudo_Task( task_name );
     Task::__tasks.insert( cp );
-	
+
     Entry * from_entry = new Pseudo_Entry( _dom, cp );
     from_entry->initialize();
     Entry::__entries.insert( from_entry );
@@ -669,18 +674,18 @@ Entry::add_open_arrival_task()
 }
 
 
-void 
+void
 Entry::add_call( const unsigned int p, LQIO::DOM::Call* domCall )
 {
     /* Begin by extracting the from/to DOM entries from the call and their names */
     const LQIO::DOM::Entry* toDOMEntry = domCall->getDestinationEntry();
 
     /* Make sure this is one of the supported call types */
-    if (domCall->getCallType() != LQIO::DOM::Call::Type::SEND_NO_REPLY && 
+    if (domCall->getCallType() != LQIO::DOM::Call::Type::SEND_NO_REPLY &&
 	domCall->getCallType() != LQIO::DOM::Call::Type::RENDEZVOUS ) {
 	abort();
     }
-	
+
     /* Internal Entry references */
     const char* to_entry_name = toDOMEntry->getName().c_str();
     Entry * to_entry = Entry::find( to_entry_name );
@@ -751,6 +756,6 @@ Entry::print_debug_info()
 	    }
 	    tp->print( stddbg );
 	}
-	(void) fprintf( stddbg, ".\n" );    
+	(void) fprintf( stddbg, ".\n" );
     }
 }

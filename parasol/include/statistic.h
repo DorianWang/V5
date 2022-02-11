@@ -1,6 +1,6 @@
 // $Id: statistic.h 9042 2009-10-14 01:31:21Z greg $
 //=======================================================================
-//	statistic.h - PS_AbstractStatistic, PS_RateStatistic, 
+//	statistic.h - PS_AbstractStatistic, PS_RateStatistic,
 //		     PS_VariableStatistic and PS_SampleStatistic class
 //		     declarations.
 //
@@ -35,6 +35,8 @@
 #include <para_entity.h>
 #endif //__PARA_ENTITY_H
 
+SYSCALL ps_record_stat(long stat, double value);
+
 //=======================================================================
 // class:	Statistic
 // description:	Encapsulates PARASOL statistics.
@@ -52,7 +54,7 @@ public:
 	long Reset()
 	    { return ps_reset_stat(id()); };
 	double Mean() const
-	    { double mean, other; ps_get_stat (id(), &mean, &other); 
+	    { double mean, other; ps_get_stat (id(), &mean, &other);
 	    return mean; };
 };
 
@@ -75,7 +77,7 @@ public:
 //=======================================================================
 class PS_VariableStatistic : public PS_AbstractStatistic {
 public:
-	PS_VariableStatistic(const char *name) 
+	PS_VariableStatistic(const char *name)
 	    : PS_AbstractStatistic(name, VARIABLE) {};
 	SYSCALL Record(double value)
 	    { return ps_record_stat(id(), value); };
@@ -89,7 +91,7 @@ public:
 //=======================================================================
 class PS_RateStatistic : public PS_AbstractStatistic {
 public:
-	PS_RateStatistic(const char *name) 
+	PS_RateStatistic(const char *name)
 	    : PS_AbstractStatistic(name, RATE) {};
 	SYSCALL Record()
 	    { return ps_record_rate_stat(id()); };

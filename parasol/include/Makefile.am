@@ -22,4 +22,6 @@ noinst_HEADERS = ansidecl.h \
 	semaphore.h \
 	spinlock.h \
 	statistic.h \
-	task.h 
+	task.h \
+	test_storage.h
+	

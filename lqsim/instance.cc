@@ -63,18 +63,21 @@ Instance::Instance( Task * cp, const char * task_name, long task_id )
       lastQuorumEndTime(0),
       _join_done()
 {
+   FUNC_NAME_OUT;
     assert ( _std_port < MAX_PORTS );
 
     _entry.assign( cp->n_entries(), nullptr );
     _join_done.assign( cp->max_activities(), false );
-    
+
+    printf("Maybe vector is not good?\n");
     object_tab[task_id] = this;
+    printf("Vector is good.\n");
     if ( static_cast<unsigned long>(task_id) > total_tasks ) {
 	total_tasks = task_id;
     }
 }
 
-Instance::~Instance() 
+Instance::~Instance()
 {
     if ( _start_port >= 0 ) {
 	ps_release_shared_port( _start_port );		/* Buggy */
@@ -87,7 +90,7 @@ Instance::start( void * )
 {
     try {
 	object_tab[ps_myself]->run();
-    } 
+    }
     catch ( const std::runtime_error& e ) {
 	fprintf( stderr, "%s: task \"%s\": runtime error: %s\n", LQIO::io_vars.toolname(), object_tab[ps_myself]->name(), e.what() );
 	LQIO::io_vars.error_count += 1;
@@ -124,8 +127,8 @@ Instance::client_cycle( const double think_time )
  * Code for performing one server cycle.  Common to srn_client,
  * srn_server and srn_worker.
  *
- *  int entry,				Message received on entry	
- *  int reply_port,			Port to send replies.	
+ *  int entry,				Message received on entry
+ *  int reply_port,			Port to send replies.
  *  message * msg			Info from client.
  */
 
@@ -164,7 +167,7 @@ Instance::server_cycle ( Entry * ep, Message * msg, bool reschedule )
 	_phase_start_time = start_time;
 	ep->_active[0] += 1;
 
-	ps_record_stat2( ep->_phase[0].r_util.raw, ep->_active[0], start_time ); 
+	ps_record_stat2( ep->_phase[0].r_util.raw, ep->_active[0], start_time );
 
 	run_activities(  ep, ep->_activity, reschedule );
 
@@ -174,7 +177,7 @@ Instance::server_cycle ( Entry * ep, Message * msg, bool reschedule )
 
 	/* Funky stat recording. */
 
-	delta = ps_now - _phase_start_time;  
+	delta = ps_now - _phase_start_time;
 	p = _current_phase;
 	Activity * phase = &ep->_phase[p];
 	ep->_active[p] -= 1;
@@ -185,13 +188,13 @@ Instance::server_cycle ( Entry * ep, Message * msg, bool reschedule )
 	    phase->_hist_data->insert(delta);
 	}
 
-	/*tomari, quorum: If we have not encountered a replying activity 
-	  after all activities have been executed, then send a reply to the 
-	  calling task or client. In a quorum, the last activity in the activity 
+	/*tomari, quorum: If we have not encountered a replying activity
+	  after all activities have been executed, then send a reply to the
+	  calling task or client. In a quorum, the last activity in the activity
 	  graph is not necessarily the last one will complete execution.*/
 	if ( Pragma::__pragmas->quorum_delayed_calls() && msg && _current_phase == 0 ) {
 #if defined(debug_quorum_flag)
-	    printf("\ndefault reply port at end of task: msg->reply_port=%d", 
+	    printf("\ndefault reply port at end of task: msg->reply_port=%d",
 		   msg->reply_port);
 	    fflush(stdout);
 #endif
@@ -237,19 +240,23 @@ Instance::server_cycle ( Entry * ep, Message * msg, bool reschedule )
 /*----------------------------------------------------------------------*/
 
 /*
- * These tasks do the actual "computation" for the simulation 
+ * These tasks do the actual "computation" for the simulation
  */
 
-Real_Instance::Real_Instance( Task * cp, const char * task_name ) 
+Real_Instance::Real_Instance( Task * cp, const char * task_name )
     : Instance( cp, task_name, Real_Instance::create_task( cp, task_name ) )
 {
+   FUNC_NAME_OUT;
 }
 
 
 int
 Real_Instance::create_task( Task * cp, const char * task_name )
 {
+   printf("Inside create_task()\n");
+   printf("Task pointer is %x and dummy pointer is %x\n", (size_t) cp, (size_t) dummy_task_location);
     if ( cp->group_id() != -1 ) {
+		printf("ps_create_group will be called, from Real_Instance::create_task\n");
 	return ps_create_group( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority(), cp->group_id() );
     } else {
 	return ps_create( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority() );
@@ -263,7 +270,7 @@ Real_Instance::create_task( Task * cp, const char * task_name )
  * other.
  */
 
-Virtual_Instance::Virtual_Instance( Task * cp, const char * task_name ) 
+Virtual_Instance::Virtual_Instance( Task * cp, const char * task_name )
     : Instance( cp, task_name, Virtual_Instance::create_task( cp, task_name ) )
 {
 }
@@ -274,7 +281,7 @@ Virtual_Instance::create_task( Task * cp, const char * task_name )
 
     /*
      * if the task is a cfs task and this task instance have no
-     * group, we still create a fcfs node for it.  
+     * group, we still create a fcfs node for it.
      */
 
     const int local_node_id = ps_build_node( task_name, 1, 1.0, 0.0, 0, true );
@@ -297,7 +304,7 @@ Virtual_Instance::create_task( Task * cp, const char * task_name )
  */
 
 srn_open_arrivals::srn_open_arrivals( Task * cp, const char * a_name )
-    : Virtual_Instance( cp, a_name ) 
+    : Virtual_Instance( cp, a_name )
 {
     client_init_count += 1;		/* For -C auto init. 			*/
 }
@@ -338,9 +345,10 @@ srn_sync_server::run()
  */
 
 srn_client::srn_client( Task * cp, const char * a_name  )
-    : Real_Instance( cp, a_name ) 
+    : Real_Instance( cp, a_name )
 {
-    client_init_count += 1;		/* For -C auto init. 			*/
+   FUNC_NAME_OUT;
+   client_init_count += 1;		/* For -C auto init. 			*/
 }
 
 
@@ -380,7 +388,7 @@ srn_server::run()
 	Message * msg = wait_for_message( entry_id );
 
 	/* If start_time == ps_now, then we continued right through */
-	/* the receive, hence we will want to force a reschedule.   */ 
+	/* the receive, hence we will want to force a reschedule.   */
 
 	server_cycle( Entry::entry_table[entry_id], msg, start_time == ps_now );
     }
@@ -394,11 +402,11 @@ srn_server::run()
 
 const std::string&
 srn_multiserver::type_name() const
-{ 
+{
     if ( _max_workers != static_cast<unsigned long>(~0) ) {
-	return Task::type_strings.at(Task::Type::MULTI_SERVER); 
+	return Task::type_strings.at(Task::Type::MULTI_SERVER);
     } else {
-	return Task::type_strings.at(Task::Type::INFINITE_SERVER); 
+	return Task::type_strings.at(Task::Type::INFINITE_SERVER);
     }
 }
 
@@ -406,7 +414,7 @@ srn_multiserver::type_name() const
 /*
  * A dispatcher for multi-server type tasks.  The infinite server-type
  * tasks are just like queue-type tasks except that new workers are
- * automagically allocated when needed.  
+ * automagically allocated when needed.
  */
 
 void
@@ -517,7 +525,7 @@ srn_semaphore::run()
 	/* dispatch */
 
 	if (cp->discipline() == SCHEDULE_RWLOCK ) {
-	    ps_resend( worker_port, entry_id, msg->time_stamp, (char *)msg, msg->reply_port );	    //keep the time stamp	
+	    ps_resend( worker_port, entry_id, msg->time_stamp, (char *)msg, msg->reply_port );	    //keep the time stamp
 	} else {
 	    ps_send( worker_port, entry_id, (char *)msg, msg->reply_port );
 	}
@@ -653,7 +661,7 @@ srn_token::run()
 	}
 
 	if(cp->discipline()==SCHEDULE_RWLOCK){
-	
+
 	    if(time_stamp!=ps_now){
 		const double delta = ps_now - time_stamp;
 		ps_record_stat( dynamic_cast<ReadWriteLock_Task *>(_cp)->r_reader_wait.raw, delta );
@@ -704,7 +712,7 @@ srn_token::run()
 	    ps_record_stat( dynamic_cast<ReadWriteLock_Task *>(_cp)->r_reader_hold_sqr.raw, square( delta ) );
 
 	}else{
-			
+
 	    ps_record_stat( cp->r_hold_util.raw, cp->_hold_active );
 	    ps_record_stat( cp->r_hold.raw, delta );
 	    ps_record_stat( cp->r_hold_sqr.raw, square( delta ) );
@@ -833,7 +841,7 @@ srn_rwlock_server::run()
 
 	/* dispatch request to reader queue or worker token*/
 
-	ep = Entry::entry_table[entry_id]; 
+	ep = Entry::entry_table[entry_id];
 
 	if (ep->is_r_lock() ) {
 	    /*	lock reader request*/
@@ -878,7 +886,7 @@ srn_rwlock_server::run()
 	    if (writers>1 || activeReaders>0){
 		/* there is an active writer or some active readers
 		   enqueue the writer request */
-			
+
 		if ( ps_resend( cp->writerQ_port(), entry_id, msg->time_stamp, (char *)msg, msg->reply_port ) != OK ) {	abort();}
 		timeline_trace( ENQUEUE_WRITER, 1 );
 	    }else{
@@ -889,12 +897,12 @@ srn_rwlock_server::run()
 	}else  {
 	    /*  unlock writer  request;
 		writer_token task receive both writer lock request and unlock signal at std_port,
-		in order to make sure the unlock writer signal is arrive after the lock writer request, 
+		in order to make sure the unlock writer signal is arrive after the lock writer request,
 		and before the next the lock writer request. */
 	    long writer_id;
 
 	    int rc = ps_receive(cp->signal_port2(), IMMEDIATE, &writer_id,  &time_stamp, (char **)&msg1, &reply_port);
-		
+
 	    if ( rc == 0 ) {
 		LQIO::solution_error( ERR_SIGNAL_NO_WAIT, cp->name() );
 		continue;
@@ -903,7 +911,7 @@ srn_rwlock_server::run()
 
 	    /*  signal writer_token; */
 	    if ( ps_resend( cp->writer()->std_port(), entry_id, msg->time_stamp, (char *)msg, msg->reply_port ) != OK ) { abort();	}
-			
+
 	    writers --;
 	    if (writers>0){
 
@@ -920,10 +928,10 @@ srn_rwlock_server::run()
 		/* some readers are waiting in the queue. */
 
 		while (readers-activeReaders>0){
-				
+
 		    ps_receive(cp->readerQ_port(), IMMEDIATE, &entry_id1, &time_stamp, (char **)&msg1, &reply_port);
 		    if ( ps_resend( cp->reader()->std_port(), entry_id1, time_stamp, (char *)msg1, reply_port ) != OK ) {	abort();	}
-			
+
 		    activeReaders++;
 		    timeline_trace( DEQUEUE_READER, 1 );
 		    /*
@@ -931,7 +939,7 @@ srn_rwlock_server::run()
 		      ps_record_stat( cp->r_reader_wait.raw, delta );
 		      ps_record_stat( cp->r_reader_wait_sqr.raw, square( delta ) );
 		    */
-		} 
+		}
 	    }
 
 	}
@@ -970,13 +978,13 @@ srn_writer_token::run()
 	if ( msg ) {
 	    msg->reply_port = reply_port;		/* reply to original client */
 	}
-	
+
 	if(time_stamp!=ps_now){
 	    const double delta = ps_now - time_stamp;
 	    ps_record_stat( cp->r_writer_wait.raw, delta );
 	    ps_record_stat( cp->r_writer_wait_sqr.raw, square( delta ) );
 	}
-	
+
         _hold_start_time = ps_now;			/* Time we were "waited". */
 	cp->_hold_active += 1;
 	ps_record_stat( cp->r_writer_hold_util.raw, cp->_hold_active );
@@ -998,7 +1006,7 @@ srn_writer_token::run()
 	ps_receive( std_port(), NEVER, &entry_id, &time_stamp, (char **)&msg, &reply_port );
 
 	timeline_trace( TASK_IS_READY, 1 );
-	
+
 	if ( msg ) {
 	    msg->reply_port = reply_port;		/* reply to original client */
 	}
@@ -1018,7 +1026,7 @@ srn_writer_token::run()
 
 	timeline_trace( WORKER_IDLE );
     }
-}    
+}
 /*  -RWLOCK  */
 
 /*
@@ -1075,7 +1083,7 @@ Instance::wait_for_message( long& entry_id )
     ps_my_schedule_time = ps_now;		/* In case we don't block...	*/
 
     /* Handle any pending messages if possible */
-    
+
     for ( std::list<Message *>::iterator i = _cp->_pending_msgs.begin(); i != _cp->_pending_msgs.end(); ++i ) {
 	msg = *i;					/* This is returned!			*/
 	Entry * ep = msg->target->entry();
@@ -1087,7 +1095,7 @@ Instance::wait_for_message( long& entry_id )
     }
 
     /* Handle any new messages */
-    
+
     timeline_trace( TASK_IS_WAITING, 1 );
     for ( ;; ) {
 	double time_stamp;		/* time message sent.		*/
@@ -1126,7 +1134,7 @@ Instance::wait_for_message2( long& entry_id )
     ps_my_schedule_time = ps_now;		/* In case we don't block...	*/
 
     assert( ps_receive( std_port(), NEVER, &entry_id, &time_stamp, (char **)&msg, &reply_port ) != SYSERR );
-	
+
     if ( msg ) {
 	msg->reply_port = reply_port;
 	msg->time_stamp = time_stamp;
@@ -1134,7 +1142,7 @@ Instance::wait_for_message2( long& entry_id )
 
     timeline_trace( TASK_IS_READY, 1 );
     return msg;
-	
+
 }
 
 /*
@@ -1220,7 +1228,7 @@ Instance::do_forwarding ( Message * msg, const Entry * ep )
 	    ps_send( reply_port, 0, (char *)msg->init( ep, nullptr ), ps_my_std_port );
 
 	} else {
-				
+
 	    timeline_trace( SYNC_INTERACTION_FORWARDED, ep, msg->client, tp->entry() );
 
 	    msg->time_stamp   = ps_now; 		/* Tag send time.	*/
@@ -1292,14 +1300,14 @@ Instance::execute_activity( Entry * ep, Activity * ap, bool& reschedule )
     ps_record_stat2( ap->r_util.raw, ap->_active, start_time );		/* Activity utilization.*/
 
     /*
-     * Delay for "think time".  
+     * Delay for "think time".
      */
 
     if ( ap->think_time() > 0.0 ) {
 	double think_time = ps_exponential( ap->think_time() );
 	ps_my_schedule_time = ps_now + think_time;
 	ps_sleep( think_time );
-    } 
+    }
 
     /*
      * Now do service.
@@ -1390,7 +1398,7 @@ Instance::execute_activity( Entry * ep, Activity * ap, bool& reschedule )
 	    assert( reply_ep->index() < _cp->n_entries() );
 	    Message * msg = root_ptr()->_entry[reply_ep->index()];
 	    if ( msg ) {
-			 
+
 		/*
 		 * 		 !!! KLUDGE ALERT !!!
 		 *
@@ -1447,7 +1455,7 @@ Instance::execute_activity( Entry * ep, Activity * ap, bool& reschedule )
 
     /*Add the preemption time to the waiting time if available. Tao*/
 
-    if (ps_preempted_time (task_id()) > 0.0) {   
+    if (ps_preempted_time (task_id()) > 0.0) {
 	ps_add_stat( ap->r_proc_delay.raw, ps_preempted_time (task_id()) );
 	ps_add_stat( ap->r_proc_delay_sqr.raw, (ps_preempted_time (task_id()) + ap->_prewaiting) * (ps_preempted_time (task_id()) + ap->_prewaiting) -  ap->_prewaiting * ap->_prewaiting);
 
@@ -1473,7 +1481,7 @@ Instance::execute_activity( Entry * ep, Activity * ap, bool& reschedule )
  * May have to do joins and all that good stuff.
  */
 
-Activity * 
+Activity *
 Instance::next_activity( Entry * ep, Activity * ap_in, bool reschedule )
 {
     Activity * ap_out = nullptr;
@@ -1494,12 +1502,12 @@ Instance::next_activity( Entry * ep, Activity * ap_in, bool reschedule )
 		    double delta = ps_now - _cp->_join_start_time;
 		    ps_record_stat( join_list->r_join.raw, delta );
 		    ps_record_stat( join_list->r_join_sqr.raw, square( delta ) );
-					  
+
 		    _cp->_join_start_time = 0.0;
 
 		    /* Mark entry as ready to accept messages.  Wait_for_message will take the 	*/
 		    /* first pending message to this entry if any are present.			*/
-		    
+
 		    for ( std::vector<Entry *>::const_iterator e = _cp->_entry.begin(); e != _cp->_entry.end(); ++e ) {
 			if ( (*e)->_join_list == join_list ) {
 			    (*e)->_join_list = nullptr;
@@ -1537,7 +1545,7 @@ again_1:
 
 	    timeline_trace( ACTIVITY_FORK, and_fork_list->front(), this );
 	    and_fork_list->shuffle();
-				  
+
 	    spawn_activities( ep->entry_id(), and_fork_list );
 
 	    /* Wait for all threads to complete, then we're done. */
@@ -1548,7 +1556,7 @@ again_1:
 
 	    AndJoinActivityList * join_list = dynamic_cast<AndJoinActivityList *>(and_fork_list->get_join());
 	    if ( join_list ) {
-		const double delta = thread_K_outOf_N_end_compute_time - fork_start; 
+		const double delta = thread_K_outOf_N_end_compute_time - fork_start;
 
 		ps_record_stat( join_list->r_join.raw, delta );
 		ps_record_stat( join_list->r_join_sqr.raw, square( delta ) );
@@ -1607,10 +1615,10 @@ again_1:
 
 /*
  * Start up an activity...
- * if thread waiting 
- * start thread 
- * else create thread 
- * queue activity for run 
+ * if thread waiting
+ * start thread
+ * else create thread
+ * queue activity for run
  */
 
 void
@@ -1650,7 +1658,7 @@ Instance::spawn_activities( const long entry_id, ActivityList * fork_list )
 
 	}
 
-	active_threads += 1;		 
+	active_threads += 1;
 	idle_threads   -= 1;
 
 	if ( ps_send( start_port(), entry_id, (char *)ap, std_port() ) != OK ) {
@@ -1662,7 +1670,7 @@ Instance::spawn_activities( const long entry_id, ActivityList * fork_list )
 
 
 /*
- * Wait for all forks to finish for the case of AND-Join. In the case of Quorum, just wait for K 
+ * Wait for all forks to finish for the case of AND-Join. In the case of Quorum, just wait for K
  * out of N threads.
  */
 
@@ -1688,7 +1696,7 @@ Instance::thread_wait( double time_out, char ** msg, const bool flush, double * 
     double time_stamp;			/* time message sent.		*/
     long entry_id;
     long reply_port;
-    int rc; 
+    int rc;
 
     /* tomari quorum */
 
@@ -1698,11 +1706,11 @@ Instance::thread_wait( double time_out, char ** msg, const bool flush, double * 
 	abort();
     } else if ( rc != 0 ) {
 	idle_threads   += 1;
-	active_threads -= 1;	
+	active_threads -= 1;
     }
 
     if ( thread_end_compute_time ) {
-	*thread_end_compute_time = ps_end_compute_time( ps_owner( reply_port ) ); 
+	*thread_end_compute_time = ps_end_compute_time( ps_owner( reply_port ) );
 
 	if ( flush ) { /* flush_thread() call */
 	    Activity * replyMsg = (Activity *)(*msg);
@@ -1762,7 +1770,7 @@ Instance::wait_for_threads( AndForkActivityList * fork_list, double* thread_K_ou
 	thread_wait( NEVER, (char **)&ap, false, thread_K_outOf_N_end_compute_time );
 
 	/* Only acknowledge active threads */
- 
+
 	for ( size_t i = 0; i < fork_list->size(); ++i ) {
 	    if ( fork_list->at(i) && fork_list->at(i) == ap ) {
 		count -= 1;
@@ -1839,12 +1847,12 @@ Instance::timeline_trace( const trace_events event, ... )
 	    time       = va_arg( args, double );
 	    (void) fprintf( stddbg, "Entry %s -- Received msg from task %s, entry %s (t=%g)",
 			    to_entry->name(),
-			    from_entry->task()->name(), 
+			    from_entry->task()->name(),
 			    from_entry->name(),
 			    time );
 	    if ( int_entry ) {
 		(void) fprintf( stddbg, ", forwarded via task %s, entry %s",
-				int_entry->task()->name(), 
+				int_entry->task()->name(),
 				int_entry->name() );
 	    }
 	    break;
@@ -1854,7 +1862,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    from_entry = va_arg( args, Entry * );
 	    (void) fprintf( stddbg, "Entry %s -- Reply sent to task %s, entry %s",
 			    to_entry->name(),
-			    from_entry->task()->name(), 
+			    from_entry->task()->name(),
 			    from_entry->name() );
 	    break;
 
@@ -1874,7 +1882,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    to_entry   = va_arg( args, Entry * );
 	    (void) fprintf( stddbg, "Entry %s -- Message from task %s, entry %s forwarded to task %s, entry %s",
 			    int_entry->name(),
-			    from_entry->task()->name(), 
+			    from_entry->task()->name(),
 			    from_entry->name(),
 			    to_entry->task()->name(),
 			    to_entry->name() );
@@ -1886,7 +1894,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    from_entry = va_arg( args, Entry * );
 	    (void) fprintf( stddbg, "Entry %s -- Reply tossed for task %s, entry %s",
 			    to_entry->name(),
-			    from_entry->task()->name(), 
+			    from_entry->task()->name(),
 			    from_entry->name() );
 	    break;
 
@@ -1926,7 +1934,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    root = va_arg( args, Instance * );
 	    (void) fprintf( stddbg, "Thread stop, activity %s", ap->name() );
 	    if ( root ) {
-		(void) fprintf( stddbg, ", root is %s(%ld).", 
+		(void) fprintf( stddbg, ", root is %s(%ld).",
 				root->_cp->name(), root->task_id() );
 	    } else {
 		(void) fprintf( stddbg, ", root is null??" );
@@ -1977,7 +1985,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    root  = va_arg( args, Instance * );
 	    (void) fprintf( stddbg, "activity %s --FORK--", ap->name()  );
 	    if ( root ) {
-		(void) fprintf( stddbg, ", root is %s(%ld).", 
+		(void) fprintf( stddbg, ", root is %s(%ld).",
 				root->_cp->name(), root->task_id() );
 	    } else {
 		(void) fprintf( stddbg, ", root is NULL." );
@@ -2015,7 +2023,7 @@ Instance::timeline_trace( const trace_events event, ... )
 	    fflush( stddbg );
 	} else {
 	    fprintf( stddbg, "\n" );
-	} 
+	}
 
     } else if ( timeline_flag ) {
 	switch ( event ) {

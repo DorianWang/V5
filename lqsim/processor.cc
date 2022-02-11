@@ -93,7 +93,9 @@ Processor::create()
 	LQIO::input_error2( ERR_CANNOT_CREATE_X, "processor", name() );
     } else {
 	processor_table[_node_id] = this;
+	printf("before ps_get_node_stat_index\n");
 	r_util.init( ps_get_node_stat_index( _node_id ) );
+	printf("after ps_get_node_stat_index\n");
     }
     return *this;
 }
@@ -590,6 +592,7 @@ add_communication_delay( const char * from_proc_name, const char * to_proc_name,
  * Define these suckers even though they are not used.
  */
 
+/* Actually, don't define these since they're bad.
 extern "C" {
     void bus_failure_handler( ps_event_t *ep ) {}
     void bus_repair_handler( ps_event_t *ep ) {}
@@ -599,3 +602,4 @@ extern "C" {
     void node_repair_handler( ps_event_t *ep ) {}
     void user_event_handler( ps_event_t *ep ) {}
 }
+*/

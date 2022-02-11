@@ -32,7 +32,7 @@
 /*		 26/05/93 (JEN) Added malloc.h file.			*/
 /*		 09/06/93 (JEN) Revised for Version 2			*/
 /*		 07/18/95 (PRM)	Added ctype.h #include			*/
-/************************************************************************/ 
+/************************************************************************/
 
 #ifndef	_PARASOL
 #define	_PARASOL
@@ -49,6 +49,8 @@
 #include	<signal.h>
 #include	<math.h>
 #include	<para_protos.h>
+#include "test_storage.h"
+
 #if defined(HAVE_MALLOC_H)
 #include	<malloc.h>
 #endif

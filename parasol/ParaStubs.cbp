@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="ParaStubs" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="bin/Release/ParaStubs" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-DSTANDALONE_TESTING" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-std=c11" />
+			<Add directory="include" />
+			<Add directory="C:/Users/Admin/Documents/GitHub/V5/parasol/" />
+		</Compiler>
+		<Unit filename="include/ansidecl.h" />
+		<Unit filename="include/carrier.h" />
+		<Unit filename="include/drand48.h" />
+		<Unit filename="include/genesis.h" />
+		<Unit filename="include/node.h" />
+		<Unit filename="include/para_entity.h" />
+		<Unit filename="include/para_internals.h" />
+		<Unit filename="include/para_privates.h" />
+		<Unit filename="include/para_protos.h" />
+		<Unit filename="include/para_types.h" />
+		<Unit filename="include/parasol++.h" />
+		<Unit filename="include/parasol.h" />
+		<Unit filename="include/port.h" />
+		<Unit filename="include/semaphore.h" />
+		<Unit filename="include/spinlock.h" />
+		<Unit filename="include/statistic.h" />
+		<Unit filename="include/task.h" />
+		<Unit filename="include/test_storage.h" />
+		<Unit filename="src/carrier.cc" />
+		<Unit filename="src/drand48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/genesis.cc" />
+		<Unit filename="src/node.cc" />
+		<Unit filename="src/para_entity.cc" />
+		<Unit filename="src/para_library.cpp" />
+		<Unit filename="src/port.cc" />
+		<Unit filename="src/semaphore.cc" />
+		<Unit filename="src/spinlock.cc" />
+		<Unit filename="src/standalone.cpp" />
+		<Unit filename="src/statistic.cc" />
+		<Unit filename="src/task.cc" />
+		<Unit filename="src/test_storage.cpp" />
+		<Extensions>
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

@@ -145,8 +145,12 @@
 /*									*/
 /************************************************************************/
 
-#include <para_internals.h>
-#include <para_privates.h>
+#include "para_internals.h"
+#include "para_privates.h"
+#include "para_protos.h"
+
+#include "test_storage.h"
+
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -156,12 +160,14 @@
 #endif
 #include <setjmp.h>
 
+#include <cstddef>
+
 #define TEMP_STR_SIZE	128
 
 #if defined(DEBUG)
 static void 	print_event( const char *, ps_event_t *ep );			/* event pointer	*/
 #endif
-    
+
 
 /************************************************************************/
 /*                 P A R A S O L   G L O B A L S			*/
@@ -169,9 +175,34 @@ static void 	print_event( const char *, ps_event_t *ep );			/* event pointer	*/
 
 ps_task_t	*ps_htp;			/* HOT task pointer	*/
 double		ps_now;				/* current time		*/
-ps_table_t	ps_task_tab;			/* task table		*/
+ps_table_t <ps_task_t>	ps_task_tab;			/* task table		*/
 long		ts_flag;			/* trace state flag	*/
 double		ps_run_time;			/* stop time		*/
+
+ps_task_t dummy_task;
+ps_task_t* dummy_task_location = &dummy_task;
+
+ps_port_t dummy_port;
+ps_port_t* dummy_port_location = &dummy_port;
+
+ps_stat_t dummy_stat;
+ps_stat_t* dummy_stat_location = &dummy_stat;
+
+ps_node_t dummy_node;
+ps_node_t* dummy_node_location = &dummy_node;
+
+ps_event_t dummy_event;
+ps_event_t* dummy_event_location = &dummy_event;
+
+ps_cpu_t dummy_cpu;
+ps_cpu_t* dummy_cpu_location = &dummy_cpu;
+
+ps_table_t <ps_stat_t>	ps_stat_tab; // Hopefully this makes it compile...
+
+TestStorage dump; // Just a global that will try to collect all the calls we need.
+                  // This is my first experiment with the proper stubs.
+
+
 
 /* WCS - 30 Aug 1997 - Added.  See get_dss and ts_report. */
 long		ps_trsct;			/* trace_rep stack ctest*/
@@ -265,6 +296,8 @@ unsigned        first_run = TRUE;
 /*		Task Management Related SYSCALLS			*/
 /************************************************************************/
 
+
+
 SYSCALL	ps_adjust_priority(
 
 /* Alters the sheduling priority of a specified "task". The target task	*/
@@ -277,7 +310,7 @@ SYSCALL	ps_adjust_priority(
 {
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
@@ -298,17 +331,17 @@ SYSCALL ps_awaken(
 /* Awakens the specified task if sleeping; otherwise call is ignored.	*/
 
 	long	task				/* task index		*/
-) 
+)
 {
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
 	if(tp->state != TASK_SLEEPING)
 		return(OK);
-	if (angio_flag) 
+	if (angio_flag)
 		log_angio_event(tp, dye_ptr(tp->did), "wAwaken");
 	remove_event(tp->tep);
 	tp->tep = NULL_EVENT_PTR;
@@ -335,17 +368,17 @@ SYSCALL	ps_buses(
 	ps_comm_t	*cp;			/* comm pointer		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
 
 	*nbp = 0;
-	cp = node_ptr(tp->node)->bus_list;
-	while(cp != NULL_COMM_PTR) {
-		bus_array[*nbp] = cp->blid;
+	auto iter = node_ptr(tp->node)->bus_list.begin();
+	while(iter != node_ptr(tp->node)->bus_list.end()) {
+		bus_array[*nbp] = iter->blid;
 		(*nbp)++;
-		cp = cp->next;
+		iter++;
 	}
 	return(OK);
 }
@@ -380,7 +413,7 @@ SYSCALL	ps_children(
 
 /************************************************************************/
 
-SYSCALL	ps_compute(	
+SYSCALL	ps_compute(
 
 /* Retains processor for "delta" (scaled) cpu time. Interruptions are 	*/
 /* permitted (i.e., PR or RR scheduling).				*/
@@ -396,7 +429,7 @@ SYSCALL	ps_compute(
 	np=node_ptr(ps_htp->node);
 	if(np->discipline==CFS)
 		ps_htp->si->q=get_quantum(np,hid(np,ps_htp->hp),delta);
-	ps_htp->tep = add_event(ps_now + delta / np->speed, 
+	ps_htp->tep = add_event(ps_now + delta / np->speed,
 		END_COMPUTE, (long *) ps_myself);
 	SET_TASK_STATE(ps_htp, TASK_COMPUTING);
 	if (angio_flag) {
@@ -424,7 +457,7 @@ SYSCALL	ps_create(
 	void	(*code)(void *),		/* code pointer		*/
 	long	priority			/* task priority	*/
 )
-{	
+{
 	return(ps_create2(name, node, host, code, priority, -1, 1.0));
 }
 
@@ -445,7 +478,7 @@ SYSCALL	ps_create_group(
 	long	priority,			/* task priority	*/
 	long	group				/* group index		*/
 )
-{	
+{
 	return(ps_create2(name, node, host, code, priority, group, 1.0));
 }
 
@@ -471,259 +504,18 @@ SYSCALL	ps_create2(
 	long	myid=0;				/* calling task id	*/
 	long	i;				/* loop index		*/
 	long	port;				/* port id index	*/
-	long	task;				/* task id index	*/
+	static long	task = 0;				/* task id index	*/
 	ps_node_t 	*np;			/* node pointer		*/
 	ps_task_t	*tp;			/* task pointer		*/
 	long	adjustment;			/* stack base adjuster	*/
 	sched_info 	*si;			/* sched_info pointer	*/
-#if	!HAVE_SIGALTSTACK || _WIN32 || _WIN64
-	long	*ctxt;				/* context pointer	*/
-	long	dss;				/* default stack size	*/
-#endif
 
-	if( node >= ps_node_tab.used || node < 0 )
-		return(BAD_PARAM("node"));
-	if(host >= node_ptr(node)->ncpu || host < ANY_HOST)
-		return(BAD_PARAM("host"));
-	if(priority > MAX_PRIORITY || priority < MIN_PRIORITY)
-		return(BAD_PARAM("priority"));
-	if((group!=-1 && group < 0) || group >node_ptr(node)->ngroup)
-		return(BAD_PARAM("group"));
-	if(stackscale <= 0.)
-	    	return(BAD_PARAM("stackscale"));
-	if(ps_htp != DRIVER_PTR)
-		myid = ps_myself;
-	if((task = get_table_entry(&ps_task_tab)) == SYSERR)
-		return(OTHER_ERR("growing task table"));
-
-#if	HAVE_SIGALTSTACK && !_WIN32 && !_WIN64
-	stacksize = (long)(stackscale * (double)0x10000) + MINSIGSTKSZ;	/* punt... */
-#else
-	stacksize = (long)(stackscale * (double)sp_dss) + 0x1000;
-	stacksize -= stacksize % sizeof(double);
-
-/* 	Two step test necessary because of gcc bug!			*/
-
-	dss = 4*sp_delta*sizeof(double);
-	if(stacksize < dss)
-		return(BAD_PARAM("stackscale"));
-
-#ifdef STACK_TESTING
-	stacksize *= 5;
-#endif /*STACK_TESTING*/
-#endif
-
-/*	Must fix ps_htp if table grew and not driver.			*/
-
-	if(ps_htp != DRIVER_PTR)
-		ps_htp = ps_task_ptr(myid);
-
-	tp = ps_task_ptr(task);
-	if(!(tp->name = (char *) malloc((unsigned)(strlen(name) + 1))))
-		ps_abort("Insufficient memory");
-	sprintf(tp->name, "%s", name);
-
-/*	Have to cook task names if angio tracing is on.			*/
-
-	if (angio_flag)
-		for (i = 0; tp->name[i]; i++)
-			if (isspace(tp->name[i]))
-				tp->name[i] = '_';
-
-	tp->state = TASK_SUSPENDED;
-	tp->node = node;
-	tp->port_list = NULL_PORT;
-	tp->code = code;
-	if(ts_flag)
-		ts_report(tp, "created (suspended)");
-	if((port = ps_allocate_port("Broadcast", task)) < 0) {
-		ps_kill(task);
-		return(OTHER_ERR("allocating standard port"));
-	}
-
-	tp->host = tp->uhost = host;
-	tp->hp = NULL_HOST_PTR;
-	if(!(tp->stack_base = (double *) malloc((unsigned)stacksize)))
-		ps_abort("Insufficient memory");
-	if((adjustment = ((size_t)tp->stack_base % sizeof(double)))) {
-		adjustment = sizeof(double) - adjustment;
-		stacksize -= sizeof(double);
-	}
-	tp->stack_limit = tp->stack_base + stacksize/sizeof(double);
-#ifdef STACK_TESTING
-	memset (tp->stack_base, 0x55, stacksize);
-#endif /*STACK_TESTING*/
-
-#if	HAVE_SIGALTSTACK && !_WIN32 && !_WIN64
-	mctx_create( &tp->context, tp->code, 0, tp->stack_base, stacksize );
-#else
-	if(ps_htp == DRIVER_PTR) {
-		if(!mctx_save(&d_context))
-			wrapper(&tp->context, &d_context);
-	}
-	else {
-	    if(!mctx_save(&ps_htp->context)) 
-			wrapper(&tp->context, &ps_htp->context);
-	}
-	ctxt = (long *) &tp->context;
-	if(sp_dir > 0)
-		ctxt[sp_ind] = (size_t)tp->stack_base + adjustment + 0x100;
-	else
-		/* WCS - 20 Aug 1997 - Added: << - 0x100 >> in consideration of assumed   */
-		/* setjmp nonzero return value, actually provided by some longjmp call.   */
-		/* Will this be adequate for all architectures?  << - sizeof(long) >>      */
-		/* seems to work for NeXTSTEP on Intel.  Where does the return value fall */
-		/* with respect to the env argument?  Why is 0x100 used when sp_dir > 0?  */
-		ctxt[sp_ind] = (size_t)tp->stack_base + adjustment + stacksize - 0x100;
-#endif
-
-	tp->code = code;
-	tp->priority = tp->upriority = priority;
-	tp->next = NULL_TASK;
-	if(ps_htp == DRIVER_PTR)
-		tp->parent = DRIVER;
-	else
-		tp->parent = ps_myself;
-	tp->son = NULL_TASK;
-	if(ps_htp != DRIVER_PTR) {
-		tp->sibling = ps_htp->son;
-		ps_htp->son = task;
-	}
-	else
-		tp->sibling = NULL_TASK;
-	tp->bport = port;
-	tp->blind_port = NULL_PORT;
-	tp->wport = NULL_PORT;
-	tp->lock_list = NULL_LOCK;
-	tp->spin_lock = NULL_LOCK;
-	tp->tep = tp->qep = tp->rtoep = NULL_EVENT_PTR;
-	tp->rct = 0.0;
-	tp->qx = FALSE;
-	tp->tsn = task_count++;
-
-	if (group>=0)
-		tp->group=group_ptr(group)->group_id2;
-	else
-		tp->group=-1;
-	tp->group_id=group;
-	tp->si=NULL_SCHED_PTR;
-
-	/*for cfs scheduler */
-	np = node_ptr(tp->node);
-	if (np->discipline==CFS) {
-		if( group < 0) {
-			ps_kill(task);
-			return(OTHER_ERR("creating task with no group"));	/* Can't run non group task on cfs node. */
-		}
-
-	    	/*tp->group=group; */
-
-		if(!(si = (sched_info *) malloc(sizeof(sched_info))))
-			ps_abort("Insufficient memory");
-
-		init_sched_info(si, task,NULL_CFSRQ_PTR,NULL_CFSRQ_PTR, 1); /*weight=1 */
-		tp->si=si;
-
-	} 	/* end cfs	*/
-
-	tp->sched_time = ps_now;
-	tp->tbp = -2;
-	if (task < 2 || angio_flag) {
-		if (ps_htp == DRIVER_PTR)
-			tp->did = create_dye ("Initial");
-		else
-			tp->did = derive_dye (ps_task_ptr(tp->parent)->did);
-	}
-	if (angio_flag)
-		log_angio_event (tp, dye_ptr(tp->did), "wBegin");
+	printf("Executing ps_create2 with task name: %s and task ID %d\n", name, task);
+	task = dump.add_task(name, node, host, code, priority, ps_now, group, stackscale);
 
 	return(task);
 }
-	
-/************************************************************************/
 
-long stack_corruption_tester (
-
-/*	Returns the amount of stack space used by the function fn.	*/
-/*	Warning: The globals sp_delta, sp_ind and sp_dir must be set 	*/
-/*	before calling this function.					*/
-
-	void 	(*fn)(void)			/* function to test	*/
-)
-{
-#if	!HAVE_SIGALTSTACK || _WIN32 || _WIN64
-	char 		*stack;			/* stack base		*/
-	long		bytes;			/* bytes used		*/
-	long		stacksize;		/* bytes allocated	*/
-	long		i;			/* loop index		*/
-	long		*ctxt;			/* 			*/
-	jmp_buf		newc;			/* New context		*/
-	static jmp_buf	oldc;			/* current context	*/
-	static void	(*func)(void);		/* global storage	*/
-	long		adjustment;		/* stack ptr. adjustment*/
-	
-	stacksize = 2048 * sp_delta * sizeof(double) / sizeof(double);	
-	if(!(stack = (char *) malloc((unsigned)stacksize)))
-		ps_abort("Insufficient memory");
-	if((adjustment = (size_t)stack % sizeof(double)) != 0) {
-		adjustment = sizeof(double) - adjustment;
-		stacksize -= sizeof(double);
-	}
-	
-	memset (stack, 0x55, stacksize);	/* initialize stack 	*/
-	
-#if !_WIN32 && !_WIN64
-	if(!_setjmp(oldc)) {			/* save old context	*/
- 		if(!_setjmp(newc)) {		/* setup new context	*/
-			ctxt = (long *)newc;
-			if(sp_dir > 0)
-				ctxt[sp_ind] = (long)(stack + 0x100);
-			else
-				ctxt[sp_ind] = (long)(stack + adjustment 
-				    + stacksize - 0x100);
-			func = fn;
- 			_longjmp (newc, 1);	/* enter new context	*/
- 		}
-		else {				/* we're in new context	*/
-			(*func)();
-			_longjmp (oldc, 1);	/* back to old context	*/
-		}
-	}
-#else
-	if(!setjmp(oldc)) {			/* save old context	*/
- 		if(!setjmp(newc)) {		/* setup new context	*/
-			ctxt = (long *)newc;
-			if(sp_dir > 0)
-				ctxt[sp_ind] = (size_t)(stack + 0x100);
-			else
-				ctxt[sp_ind] = (size_t)(stack + adjustment 
-				    + stacksize - 0x100);
-			func = fn;
- 			longjmp (newc, 1);	/* enter new context	*/
- 		}
-		else {				/* we're in new context	*/
-			(*func)();
-			longjmp (oldc, 1);	/* back to old context	*/
-		}
-	}
-#endif
-	if (sp_dir > 0) {			/* start at the top	*/
-		for (i = stacksize - 1; i >= 0; i--)
-			if (stack[i] != 0x55) break;
-		bytes = i - 0x100;
-	}
-	else {
-		for (i = 0; i < stacksize; i++)	/* start at the bottom	*/
-			if (stack[i] != 0x55) break;
-		bytes = stacksize - i - 0x100;
-	}
-	free (stack);
-	
-	return bytes; 
-#else
-	return 0;
-#endif
-}
 
 /************************************************************************/
 
@@ -743,7 +535,7 @@ SYSCALL	ps_hold(
 	if(delta < 0.0)
 		return(BAD_PARAM("delta"));
 
-	ps_htp->tep = add_event(ps_now + delta / node_ptr(ps_htp->node)->speed, 
+	ps_htp->tep = add_event(ps_now + delta / node_ptr(ps_htp->node)->speed,
 		END_BLOCK, (long *)ps_myself);
 	SET_TASK_STATE(ps_htp, TASK_BLOCKED);
 	if (angio_flag) {
@@ -767,7 +559,7 @@ SYSCALL	ps_idle_cpu(
 {
 	ps_node_t	*np;			/* node pointer		*/
 
-	if(node < 0 || node >= ps_node_tab.used)
+	if(node < 0 || node >= ps_node_tab.get_used())
 		return(BAD_PARAM("node"));
 	else
 		return((np = node_ptr(node))->nfree);
@@ -789,9 +581,9 @@ SYSCALL	ps_kill(
 	sched_info	*si;
 	long	sib;				/* sibling index	*/
 	long	temp;				/* temporary		*/
-	void	release_ports();		/* port killer		*/
+	//void	release_ports();		/* port killer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 2) {
+	if(task >= ps_task_tab.get_tab_size() || task < 2) {
 		return(BAD_PARAM("task"));
 	} else if((tp = ps_task_ptr(task))->state == TASK_FREE) {
 		return(BAD_PARAM("task"));
@@ -802,7 +594,7 @@ SYSCALL	ps_kill(
 /*	Use grim reaper for suicides to prevent memory leak.		*/
 
 	if(tp == ps_htp) {
-		if(port_send(reaper_port, SUICIDE, ps_now, "", task, 0, 0, 0) 
+		if(port_send(reaper_port, SUICIDE, ps_now, "", task, 0, 0, 0)
 		    == SYSERR)
 			ps_abort("Failed to send suicide request to reaper");
 		ps_suspend(task);
@@ -838,14 +630,14 @@ SYSCALL	ps_kill(
 
 		remove_event(tp->tep);
 		remove_event(tp->qep);
-		remove_event(tp->rtoep);		
+		remove_event(tp->rtoep);
 		tp->qep = tp->tep = tp->rtoep = NULL_EVENT_PTR;
 		SET_TASK_STATE(tp, TASK_FREE);
- 		free(tp->name);
+ 		//free(tp->name);
 		release_locks(tp);
 		release_ports(tp);
 		free_table_entry(&ps_task_tab, task);
-	
+
 
 /*	Fix parent's son tree						*/
 
@@ -871,7 +663,7 @@ SYSCALL	ps_kill(
 
 /*	if task is a cfs task, dq and free its si.*/
 	switch(old_state) {
-	
+
 	case TASK_SYNC:
 	case TASK_SYNC_SUSPEND:
 		SET_TASK_STATE(tp, TASK_SYNC_FREE);
@@ -881,7 +673,7 @@ SYSCALL	ps_kill(
 
 	case TASK_READY:
 		dq_ready(np, tp);
-	 
+
 	case TASK_SLEEPING:
 	case TASK_RECEIVING:
 	case TASK_SUSPENDED:
@@ -907,10 +699,10 @@ SYSCALL	ps_kill(
 		test_stack(task);
 #endif /* STACK_TESTING */
 		free(tp->stack_base);
-		find_ready(np, hp);	
+		find_ready(np, hp);
 		break;
 	}
-	
+
 	return(OK);
 }
 
@@ -922,7 +714,7 @@ SYSCALL	ps_migrate(
 /* are lost. The target task must be a descendant of the caller or the 	*/
 /* caller itself. As well, a syncing task cannot be migrated. Any 	*/
 /* port set surrogate tasks are migrated with the target.		*/
- 
+
 	long	task,				/* task id index	*/
 	long	node,				/* node id index	*/
 	long	host				/* host id index	*/
@@ -936,11 +728,11 @@ SYSCALL	ps_migrate(
 	long	port;				/* port index		*/
 	ps_tp_pair_t *pairp;			/* tp pair pointer	*/
 
-	if(task >= ps_task_tab.tab_size || task < 2)
+	if(task >= ps_task_tab.get_tab_size() || task < 2)
 		return(BAD_PARAM("task"));
 	if(!ancestor(tp = ps_task_ptr(task)))
 		return(BAD_PARAM("task"));
-	if(node < 0 || node >= ps_node_tab.used)
+	if(node < 0 || node >= ps_node_tab.get_used())
 		return(BAD_PARAM("node"));
 	np = node_ptr(node);
 	if(host != ANY_HOST && ((host < 0) || (host >= np->ncpu)))
@@ -1027,7 +819,7 @@ SYSCALL ps_ready_queue(
 	long	count;				/* queue length counter	*/
 	long	task;				/* task index		*/
 
-	if(node < 0 || node >= ps_node_tab.used)
+	if(node < 0 || node >= ps_node_tab.get_used())
 		return(BAD_PARAM("node"));
 
 	count = 0;
@@ -1040,7 +832,7 @@ SYSCALL ps_ready_queue(
 		}
 		task = ps_task_ptr(task)->next;
 	}
-	return(count);	
+	return(count);
 }
 
 /************************************************************************/
@@ -1048,7 +840,7 @@ SYSCALL ps_ready_queue(
 SYSCALL ps_receive_links(
 
 /* Returns the receive links accessible by the specified "task".	*/
- 
+
 	long	task,				/* task index		*/
 	long	*nlp,				/* # links pointer	*/
 	long	link_array[]			/* link array		*/
@@ -1057,17 +849,17 @@ SYSCALL ps_receive_links(
 	ps_comm_t	*cp;			/* comm pointer		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
 
 	*nlp = 0;
-	cp = node_ptr(tp->node)->rl_list;
-	while(cp != NULL_COMM_PTR) {
-		link_array[*nlp] = cp->blid;
+	auto iter = node_ptr(tp->node)->rl_list.begin();
+	while(iter != node_ptr(tp->node)->rl_list.end()) {
+		link_array[*nlp] = iter->blid;
 		(*nlp)++;
-		cp = cp->next;
+		iter++;
 	}
 	return(OK);
 }
@@ -1084,30 +876,38 @@ SYSCALL ps_resume(
 )
 {
 	ps_task_t	*tp;			/* task pointers	*/
+	printf("ps_resume(%d)\n", task);
 
-	if(task >= ps_task_tab.tab_size || task < 0)
-		return(BAD_PARAM("task"));
+	//if(task >= ps_task_tab.get_tab_size() || task < 0)
+	//	return(BAD_PARAM("task"));
 
 	tp = ps_task_ptr(task);
+	if (tp == dummy_task_location) dummy_task_location->state = TASK_SUSPENDED;
+	printf("tp is %x ", (size_t) tp);
+	printf("with state %d, angio_flag is %d\n", tp->state, angio_flag); // Hope enums count as ints.
+
 	switch(tp->state) {
 
 	case 	TASK_SUSPENDED:
-		if (angio_flag) 
+		if (angio_flag)
 			log_angio_event(tp, dye_ptr(tp->did), "wAwaken");
 		find_host(tp);
+		printf("Done ps_resume(%d)\n", task);
 		return(OK);
 
 	case	TASK_SYNC_SUSPEND:
 	        if (angio_flag)
 			log_angio_event(tp, dye_ptr(tp->did), "wAwaken");
 		SET_TASK_STATE(tp, TASK_SYNC);
+		printf("Done ps_resume(%d)\n", task);
 		return(OK);
 
 	default:
+	   printf("A bad call shouldn't segfault, yet...\n");
 	        return(BAD_CALL("Task is not suspended"));
 	}
 }
-		
+
 /************************************************************************/
 
 SYSCALL	ps_send_links(
@@ -1122,17 +922,17 @@ SYSCALL	ps_send_links(
 	ps_comm_t	*cp;			/* comm pointer		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
 
 	*nlp = 0;
-	cp = node_ptr(tp->node)->sl_list;
-	while(cp != NULL_COMM_PTR) {
-		link_array[*nlp] = cp->blid;
+	auto iter = node_ptr(tp->node)->sl_list.begin();
+	while(iter != node_ptr(tp->node)->sl_list.end()) {
+		link_array[*nlp] = iter->blid;
 		(*nlp)++;
-		cp = cp->next;
+		iter++;
 	}
 	return(OK);
 }
@@ -1178,25 +978,29 @@ SYSCALL	ps_sleep(
 	char		string[40];		/* Output buffer	*/
 
 	np = node_ptr(ps_htp->node);
+	if (ps_htp != dummy_task_location) ps_htp = dummy_task_location;
+	printf("In ps_sleep()\n");
 
 	if(duration <= 0.0) {
 		if((np->rtrq == NULL_TASK ) ||
-		   ((np->discipline == PR) && (ps_htp->priority != 
+		   ((np->discipline == PR) && (ps_htp->priority !=
 		      ps_task_ptr(np->rtrq)->priority)) ||
 		   ((np->discipline == HOL) && (ps_htp->priority >
-		      ps_task_ptr(np->rtrq)->priority)))		
+		      ps_task_ptr(np->rtrq)->priority)))
 			return(OK);
 		duration = 0.0;
 	}
+	printf("setting hp to ps_htp->hp\n");
 	hp = ps_htp->hp;
 	if(np->discipline==CFS){
+      printf("update_run_task()\n");
 		update_run_task(ps_htp);
 		dq_cfs_task(ps_htp);
 		/* cooling the cfs task */
 		cooling_cfs_task(ps_htp);
 		/* current task is preempted*/
 	}
-	
+
 
 	ps_htp->hp = NULL_HOST_PTR;
 	SET_TASK_STATE(ps_htp, TASK_SLEEPING);
@@ -1231,13 +1035,13 @@ SYSCALL	ps_suspend(
 	ps_cpu_t	*hp;			/* host pointer		*/
 	long	old_state;			/* old state of task	*/
 
-	if(task >= ps_task_tab.tab_size || task < 1)
+	if(task >= ps_task_tab.get_tab_size() || task < 1)
 		return(BAD_PARAM("task"));
 	switch(old_state = (tp = ps_task_ptr(task))->state) {
 
 	case TASK_SYNC:
 		SET_TASK_STATE(tp, TASK_SYNC_SUSPEND);
- 
+
 	case TASK_SYNC_SUSPEND:
 		return(OK);
 
@@ -1271,7 +1075,7 @@ SYSCALL	ps_suspend(
 		case TASK_COMPUTING:
 			remove_event(tp->tep);
 			tp->tep = NULL_EVENT_PTR;
-		
+
 		case TASK_HOT:
 
 			if(np->discipline==CFS){
@@ -1279,7 +1083,7 @@ SYSCALL	ps_suspend(
 				dq_cfs_task(tp);
 				/* cooling the cfs task */
 				cooling_cfs_task(tp);
-		
+
 			}
 
 			find_ready(np, hp);
@@ -1294,11 +1098,11 @@ SYSCALL	ps_suspend(
 	}
 	return(OK);
 }
- 
+
 
 /************************************************************************/
 
-SYSCALL	ps_sync(	
+SYSCALL	ps_sync(
 
 /* Retains processor for "delta" (scaled) cpu time w/o interruption.	*/
 /* PR and RR sheduling are postponed until delta time expires.		*/
@@ -1312,10 +1116,10 @@ SYSCALL	ps_sync(
 		return(BAD_PARAM("delta"));
 
 /* WCS - 15 June 1999 - added */
-	if(ps_my_node == 0) 
+	if(ps_my_node == 0)
 		return(BAD_CALL("ps_sync on node 0 not recommended -- block stats may not be reported"));
 
-	ps_htp->tep = add_event(ps_now + delta / node_ptr(ps_htp->node)->speed, 
+	ps_htp->tep = add_event(ps_now + delta / node_ptr(ps_htp->node)->speed,
 		END_SYNC, (long *)ps_myself);
 	SET_TASK_STATE(ps_htp, TASK_SYNC);
 	if (angio_flag) {
@@ -1327,12 +1131,12 @@ SYSCALL	ps_sync(
 	return(OK);
 }
 
-	
+
 /************************************************************************/
 /*		Message Passing Related SYSCALLS			*/
 /************************************************************************/
 
-SYSCALL	ps_allocate_port(	
+SYSCALL	ps_allocate_port(
 
 /* Allocates a named port to a specified existing "task". 		*/
 
@@ -1340,29 +1144,26 @@ SYSCALL	ps_allocate_port(
 	long	task				/* task index		*/
 )
 {
-	long	port;				/* port id index	*/
+   printf("In ps_allocate_port\n");
+	static long	port = 0;				/* port id index	*/
 	ps_port_t	*pp;			/* port pointer		*/
-	ps_task_t	*tp;			/* task pointer		*/
+	ps_task_t	*tp = dummy_task_location;			/* task pointer		*/
 
-	if(task >= ps_task_tab.tab_size || task < 0)
-		return(BAD_PARAM("task"));
-	if((tp = ps_task_ptr(task))->state == TASK_FREE)
-		return(BAD_PARAM("task"));
-	if((port = get_table_entry(&ps_port_tab)) == SYSERR)
-		return(OTHER_ERR("growing port table"));
+	//if(task >= ps_task_tab.get_tab_size() || task < 0)
+	//	return(BAD_PARAM("task"));
+	//if((tp = ps_task_ptr(task))->state == TASK_FREE)
+	//	return(BAD_PARAM("task"));
+	//if((port = get_table_entry(&ps_port_tab)) == SYSERR)
+	//	return(OTHER_ERR("growing port table"));
 
-	(pp = port_ptr(port))->state = PORT_USED;
-	if(!(pp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	sprintf(pp->name, "%s", name);
+	(pp = dummy_port_location)->state = PORT_USED;
+	pp->name = std::string(name);
 	pp->next = tp->port_list;
 	tp->port_list = port;
-	pp->first = pp->last = NULL_MESS_PTR;
-	pp->nmess = 0;
 	pp->owner = task;
 	pp->tplist = (ps_tp_pair_t *) NULL;
-	
-	return(port);
+   printf("Finished ps_allocate_port\n");
+	return(port++);
 }
 
 /************************************************************************/
@@ -1381,16 +1182,12 @@ SYSCALL ps_allocate_port_set(
 		return(OTHER_ERR("growing port table"));
 
 	(pp = port_ptr(port))->state = PORT_SET;
-	if(!(pp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	sprintf(pp->name, "%s", name);
+	pp->name = std::string(name);
 	pp->next = ps_htp->port_list;
 	ps_htp->port_list = port;
-	pp->first = pp->last = NULL_MESS_PTR;
-	pp->nmess = 0;
 	pp->owner = ps_myself;
 	pp->tplist = (ps_tp_pair_t *) NULL;
-	
+
 	return(port);
 }
 
@@ -1404,12 +1201,13 @@ SYSCALL	ps_allocate_shared_port(
 	const	char	*name			/* shared port name	*/
 )
 {
-
+   printf("In ps_allocate_shared_port\n");
+   return 0; // I'll deal with it later
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	long	dispatcher;			/* dispatcher task id	*/
 	long	spid;				/* shared port id	*/
-	sprintf(string, "%s - Shared Port Dispatcher", ps_htp->name);
-	if(ps_resume(dispatcher = ps_create(string, ps_htp->node, ps_htp->host, 
+	sprintf(string, "%s - Shared Port Dispatcher", ps_htp->name.c_str());
+	if(ps_resume(dispatcher = ps_create(string, ps_htp->node, ps_htp->host,
 	    shared_port_dispatcher, MAX_PRIORITY)) == SYSERR)
 		return(OTHER_ERR("creating dispatcher"));
 
@@ -1421,7 +1219,7 @@ SYSCALL	ps_allocate_shared_port(
 /************************************************************************/
 
 SYSCALL ps_broadcast(
-		
+
 /* Globally broadcasts a message without use of a bus or a link.	*/
 
 	long	type,				/* message type		*/
@@ -1431,7 +1229,7 @@ SYSCALL ps_broadcast(
 {
 	long	i;
 
-	for(i = 1; i < ps_task_tab.tab_size; i++) 
+	for(i = 1; i < ps_task_tab.get_tab_size(); i++)
 		if(i != ps_myself && ps_task_ptr(i)->state != TASK_FREE)
 			ps_send(ps_std_port(i), type, text, ack_port);
 	return(OK);
@@ -1439,7 +1237,7 @@ SYSCALL ps_broadcast(
 
 /************************************************************************/
 
-SYSCALL ps_buffer_size(			
+SYSCALL ps_buffer_size(
 
 /* Returns the size of a buffer if it is a member of a pool.		*/
 
@@ -1497,16 +1295,16 @@ SYSCALL ps_bus_send(
 	long	sf, df;				/* flags		*/
 	long	i;				/* loop index		*/
 	long	nskip;				/* # messages skipped	*/
-	ps_mess_t	*mp, *cmp;		/* message pointers	*/
-	ps_mess_t	*bmp=0; 
+	ps_mess_t*	mp;		/* message pointer	*/
+	long mess;			/* message index */
 	ps_bus_t	*bp;			/* bus pointer		*/
 	ps_port_t	*pp;			/* port pointer		*/
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 
-	if(bus < 0 || bus >= ps_bus_tab.used) 
+	if(bus < 0 || bus >= ps_bus_tab.get_used())
 		return(BAD_PARAM("bus"));
 	bp = bus_ptr(bus);
-	if(port < 1 || port >= ps_port_tab.tab_size)
+	if(port < 1 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
@@ -1524,39 +1322,29 @@ SYSCALL ps_bus_send(
 	if(size < 0)
 		return(BAD_PARAM("size"));
 
-	mp = get_mess();
+	mess = get_mess();
 	if(bp->discipline == RAND) {
-		if(bp->nqueued) {
-			nskip = (long) (drand48()*bp->nqueued) + 1;
-			cmp = bp->head;
-			for(i = 0; i < nskip; i++) {
-				bmp = cmp;
-				cmp = cmp->next;
-			}
-			bmp->next = mp;
-			mp->next = cmp;
+		if(bp->mq.size()) {
+			// This will result in a value between 1 and size().
+			nskip = (long) (drand48()*bp->mq.size()) + 1;
+			auto iter = bp->mq.begin();
+			for (unsigned long i = 0; i < nskip; i++)
+				++iter; // Could be more efficient by checking if back iterator is better
+			bp->mq.insert(iter, mess);
 		}
 		else {
-			bp->head = mp;
-			mp->next = NULL_MESS_PTR;
+			bp->mq.push_back(mess);
 		}
-
 	}
 	else {
-		if(bp->head == NULL_MESS_PTR)
-			bp->head = mp;
-		else
-			bp->tail->next = mp;
-		bp->tail = mp;
-		mp->next = NULL_MESS_PTR;
+		bp->mq.push_back(mess);
 	}
-	(bp->nqueued)++;
 
+	mp = mess_pool.get_mp(mess);
 	mp->sender = ps_myself;
 	mp->port = mp->org_port = port;
 	mp->ack_port = ack_port;
 	mp->type = type;
-	mp->size = size;
 	mp->text = text;
 	mp->c_code = BUS;
 	mp->blid = bus;
@@ -1604,9 +1392,9 @@ SYSCALL	ps_free_buffer(
 	ibp = (ps_buf_t *) (bp - 2*sizeof(double));
 	if(ibp->signature != BUFFER)
 		return(BAD_PARAM("bp"));
-	if(ibp->pool < 0 || ibp->pool >= ps_pool_tab.used)
+	if(ibp->pool < 0 || ibp->pool >= ps_pool_tab.get_used())
 		return(BAD_PARAM("bp"));
-	
+
 	pp = pool_ptr(ibp->pool);
 	ibp->next = pp->flist;
 	pp->flist = ibp;
@@ -1625,20 +1413,20 @@ char	*ps_get_buffer(
 	ps_buf_t	*ibp;			/* internal buffer ptr	*/
 	ps_pool_t	*pp;			/* pool pointer		*/
 
-	if(pool < 0 || pool >= ps_pool_tab.used)
+	if(pool < 0 || pool >= ps_pool_tab.get_used())
 	    return (char *)(BAD_PARAM("pool"));
 
 	if((ibp = (pp = pool_ptr(pool))->flist) == NULL_BUF_PTR) {
 		if((ibp = (ps_buf_t *) malloc(pp->size + 2*sizeof(double)))
-		     == (ps_buf_t *) SYSERR) 
+		     == (ps_buf_t *) SYSERR)
 			ps_abort("Insufficient memory");
 		ibp->signature = BUFFER;
 		ibp->pool = pool;
 	}
-	else 
+	else
 		pp->flist = ibp->next;
 
-	return(((char *) ibp) + 2*sizeof(double));	
+	return(((char *) ibp) + 2*sizeof(double));
 }
 
 /************************************************************************/
@@ -1660,8 +1448,8 @@ SYSCALL	ps_join_port_set(
 
 	if(port_set == port)
 		return(BAD_CALL("port == port_set"));
-	if(port_set < 0 || port_set >= ps_port_tab.tab_size || 
-	     port < 0 || port >= ps_port_tab.tab_size)
+	if(port_set < 0 || port_set >= ps_port_tab.get_tab_size() ||
+	     port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((psp = port_ptr(port_set))->state != PORT_SET)
 		return(BAD_PARAM("port_set"));
@@ -1671,9 +1459,9 @@ SYSCALL	ps_join_port_set(
 		return(BAD_CALL("Caller is not owner"));
 	if(port == ps_my_std_port)
 		return(BAD_CALL("Port is caller's standard port"));
-	sprintf(string,"%s Surrogate", ps_htp->name);
-	if((surrogate = ps_create(string, ps_htp->node, ps_htp->host, 
-	    port_set_surrogate, MAX_PRIORITY)) == SYSERR) 
+	sprintf(string,"%s Surrogate", ps_htp->name.c_str());
+	if((surrogate = ps_create(string, ps_htp->node, ps_htp->host,
+	    port_set_surrogate, MAX_PRIORITY)) == SYSERR)
 		return(OTHER_ERR("creating port set surrogate task"));
 	adjust_priority(surrogate, MAX_PRIORITY+4);
 
@@ -1722,9 +1510,9 @@ SYSCALL	ps_leave_port_set(
 /* WCS - 17 July 1997 - added */
 	long	save_flag;			/* saves ts_flag	*/
 
-	if(port_set < 0 || port_set >= ps_port_tab.tab_size)
-		return(BAD_PARAM("port_set")); 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port_set < 0 || port_set >= ps_port_tab.get_tab_size())
+		return(BAD_PARAM("port_set"));
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((psp = port_ptr(port_set))->state != PORT_SET)
 		return(BAD_PARAM("port_set"));
@@ -1745,13 +1533,13 @@ SYSCALL	ps_leave_port_set(
 
 /* WCS - 17 July 1997 - added to remove unwanted statements from trace. */
 	save_flag = ts_flag;
-	ts_flag = FALSE; 
+	ts_flag = FALSE;
 
-	istop = psp->nmess;
+	istop = psp->mq.size();
 	for(i = 0; i < istop; i++) {
 		port_receive(FIFO,port_set,NEVER,&type,&ts,&tp,&rp,&oport,&mid,
 		    &did);
-		if(oport == port) 
+		if(oport == port)
 			port_send(port, type, ts, tp, rp, oport, mid, did);
 		else
 			port_send(port_set, type, ts, tp, rp, oport, mid, did);
@@ -1780,12 +1568,13 @@ SYSCALL	ps_link_send(
 	ps_link_t	*lp;			/* link pointer		*/
 	ps_mess_t	*mp;			/* message pointer	*/
 	ps_port_t	*pp;			/* port pointer		*/
+	long mess; // message index
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 
-	if(link < 0 || link >= ps_link_tab.used)
+	if(link < 0 || link >= ps_link_tab.get_used())
 		return(BAD_PARAM("link"));
 	lp = link_ptr(link);
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
@@ -1796,23 +1585,18 @@ SYSCALL	ps_link_send(
 	if(size < 0)
 		return(BAD_PARAM("size"));
 
-	mp = get_mess();
-	if(lp->head == NULL_MESS_PTR)
-		lp->head = mp;
-	else
-		lp->tail->next = mp;
-	lp->tail = mp;
-
+	mess = get_mess();
+	lp->mq.push(mess);
+	mp = mess_pool.get_mp(mess);
 	mp->sender = ps_myself;
 	mp->port = mp->org_port = port;
 	mp->ack_port = ack_port;
 	mp->type = type;
 	mp->size = size;
-	mp->text = text;
+	mp->text = std::string(text);
 	mp->c_code = LINK;
 	mp->blid = link;
 	mp->ts = ps_now;
-	mp->next = NULL_MESS_PTR;
 	mp->mid = next_mid++;
 	if (angio_flag) {
 		mp->did = derive_dye (ps_htp->did);
@@ -1841,7 +1625,7 @@ SYSCALL	ps_link_send(
 
 /************************************************************************/
 
-SYSCALL ps_localcast(		
+SYSCALL ps_localcast(
 
 /* Broadcasts a message to all tasks on caller's node without use of a 	*/
 /* bus or a link.							*/
@@ -1853,7 +1637,7 @@ SYSCALL ps_localcast(
 {
 	long	i;
 
-	for(i = 1; i < ps_task_tab.tab_size; i++) 
+	for(i = 1; i < ps_task_tab.get_tab_size(); i++)
 		if(i != ps_myself && ps_task_ptr(i)->state != TASK_FREE
 		    && ps_task_ptr(i)->node == ps_my_node)
 			ps_send(ps_std_port(i), type, text, ack_port);
@@ -1862,7 +1646,7 @@ SYSCALL ps_localcast(
 
 /************************************************************************/
 
-SYSCALL ps_multicast(	
+SYSCALL ps_multicast(
 
 /* Broadcasts a message to descendants only without use of a bus or a 	*/
 /* link.								*/
@@ -1874,7 +1658,7 @@ SYSCALL ps_multicast(
 {
 	long	i;
 
-	for(i = 0; i < ps_task_tab.tab_size; i++) 
+	for(i = 0; i < ps_task_tab.get_tab_size(); i++)
 		if(i != ps_myself && ps_task_ptr(i)->state != TASK_FREE
 		    && ancestor(ps_task_ptr(i)))
 			ps_send(ps_std_port(i), type, text, ack_port);
@@ -1883,7 +1667,7 @@ SYSCALL ps_multicast(
 
 /************************************************************************/
 
-SYSCALL	ps_my_ports(	
+SYSCALL	ps_my_ports(
 
 /* Returns ports owned by caller excluding those in port sets. 		*/
 
@@ -1916,17 +1700,17 @@ SYSCALL	ps_owner(
 {
 	ps_port_t	*pp;			/* port pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.used)
+	if(port < 0 || port >= ps_port_tab.get_used())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
-	
+
 	return(pp->owner);
 }
 
 /************************************************************************/
 
-SYSCALL	ps_pass_port( 		
+SYSCALL	ps_pass_port(
 
 /* Transfers a "port" to another "task".  Caller must be port owner or 	*/
 /* an ancestor of the owner.  All existing queued messages are retained.*/
@@ -1943,10 +1727,10 @@ SYSCALL	ps_pass_port(
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	ps_tp_pair_t *pairp;			/* pair pointer		*/
 	ps_tp_pair_t *lastp;			/* last pair pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	//void	free_pair();			/* tp pair sink		*/
 	long	task2;				/* Saves the owner	*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state != PORT_USED)
 		return(BAD_PARAM("port"));
@@ -1954,7 +1738,7 @@ SYSCALL	ps_pass_port(
 		return(BAD_CALL("Caller is not ancestor of port owner"));
 	if(port == tp1->bport)
 		return(BAD_CALL("Port is a standard port"));
-	if(task >= ps_task_tab.tab_size || task < 0)
+	if(task >= ps_task_tab.get_tab_size() || task < 0)
 		return(BAD_PARAM("task"));
 	if((tp2 = ps_task_ptr(task))->state == TASK_FREE)
 		return(BAD_PARAM("task"));
@@ -1978,14 +1762,14 @@ SYSCALL	ps_pass_port(
 
 	if(ts_flag) {
 		if (tp1->code == port_set_surrogate) {
-			sprintf(string, "removes port %ld from port set %ld", 
+			sprintf(string, "removes port %ld from port set %ld",
 			    port, lookup_port_set(tp1->parent, task2));
 		}
 		else if (tp2->code == port_set_surrogate)
 			sprintf(string,"inserts port %ld in port set %ld", port,
 			    lookup_port_set(tp2->parent, task));
-		else 
-			sprintf(string, "passes port %ld to task %ld", port, 
+		else
+			sprintf(string, "passes port %ld to task %ld", port,
 			    task);
 		ts_report(ps_htp, string);
 	}
@@ -2053,7 +1837,7 @@ SYSCALL ps_receive(
 	long	mid;				/* unique message id 	*/
 	long	did;				/* dye id		*/
 
-	retval = port_receive(FIFO, port, time_out, typep, tsp, texth, app, 
+	retval = port_receive(FIFO, port, time_out, typep, tsp, texth, app,
 	    &op, &mid, &did);
 	if (retval != SYSERR && angio_flag) {
 		end_trace (ps_htp);
@@ -2088,7 +1872,7 @@ SYSCALL ps_receive_last(
 	long	mid;				/* unique message id 	*/
 	long	did;				/* dye id		*/
 
-	retval = port_receive(LIFO, port, time_out, typep, tsp, texth, app, 
+	retval = port_receive(LIFO, port, time_out, typep, tsp, texth, app,
 	    &op, &mid, &did);
 	if (retval != SYSERR && angio_flag) {
 		end_trace (ps_htp);
@@ -2123,7 +1907,7 @@ SYSCALL ps_receive_random(
 	long	mid;				/* unique message id 	*/
 	long	did;				/* dye id		*/
 
-	retval = port_receive(RAND, port, time_out, typep, tsp, texth, app, 
+	retval = port_receive(RAND, port, time_out, typep, tsp, texth, app,
 	    &op, &mid, &did);
 	if (retval != SYSERR && angio_flag) {
 		end_trace (ps_htp);
@@ -2159,7 +1943,7 @@ SYSCALL ps_receive_priority(
 	long	mid;				/* unique message id 	*/
 	long	did;				/* dye id		*/
 
-	retval = port_receive(HOL, port, time_out, typep, tsp, texth, app, 
+	retval = port_receive(HOL, port, time_out, typep, tsp, texth, app,
 	    &op, &mid, &did);
 	if (retval != SYSERR && angio_flag) {
 		end_trace (ps_htp);
@@ -2191,13 +1975,13 @@ SYSCALL	ps_receive_shared(
 	long	status;				/* receive status	*/
 	long	save_flag;			/* saves ts_flag	*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if(port_ptr(port)->state != PORT_SHARED)
 		return(BAD_PARAM("port"));
 	if(ps_htp->blind_port == NULL_PORT) {
-		sprintf(name, "%s - Blind Port", ps_htp->name);
-		if((ps_htp->blind_port = ps_allocate_port(name, ps_myself)) 
+		sprintf(name, "%s - Blind Port", ps_htp->name.c_str());
+		if((ps_htp->blind_port = ps_allocate_port(name, ps_myself))
 		    == SYSERR) {
 			ps_htp->blind_port = NULL_PORT;
 			return(OTHER_ERR("allocating blind port"));
@@ -2205,24 +1989,24 @@ SYSCALL	ps_receive_shared(
 	}
 
 	save_flag = ts_flag;
-	ts_flag = FALSE; 
+	ts_flag = FALSE;
 	port_send(port, SP_REQUEST, ps_now, "", ps_htp->blind_port, 0, 0, 0);
 	ts_flag = save_flag;
 	if(time_out == IMMEDIATE)
 		ps_sleep(0.0);
-	if((status = ps_receive(ps_htp->blind_port, time_out, typep, tsp, 
+	if((status = ps_receive(ps_htp->blind_port, time_out, typep, tsp,
 	    texth, app)) != OK || *typep == ACK_TIMEOUT) {
-		port_send(port, SP_CANCEL, ps_now, "", ps_htp->blind_port, 0, 
+		port_send(port, SP_CANCEL, ps_now, "", ps_htp->blind_port, 0,
 		    0, 0);
 		if(time_out == IMMEDIATE)
 			ps_sleep(0.0);
 	}
 	return(status);
 }
-		
+
 /************************************************************************/
 
-SYSCALL	ps_release_port(		
+SYSCALL	ps_release_port(
 
 /* Deallocates a specified "port" from a "task".  The target task must	*/
 /* be the caller or one of its descendants.  All queued messages are 	*/
@@ -2240,7 +2024,7 @@ SYSCALL	ps_release_port(
 	ps_tp_pair_t *spp;			/* sp pair pointer	*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(OK);
@@ -2252,12 +2036,9 @@ SYSCALL	ps_release_port(
 		return(BAD_CALL("Port is a standard port"));
 
 	pp->state = PORT_FREE;
-	free(pp->name);
-	mp = pp->first;
-	while(mp != NULL_MESS_PTR) {
-			nmp = mp->next;
-			free_mess(mp);
-			mp = nmp;
+	while(pp->mq.empty() == false){
+		free_mess(pp->mq.front());
+		pp->mq.pop_front();
 	}
 	spp = pp->tplist;
 	while(spp) {
@@ -2303,7 +2084,7 @@ SYSCALL	ps_release_shared_port(
 {
 	ps_port_t	*pp;			/* port pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state != PORT_SHARED)
 		return(BAD_PARAM("port"));
@@ -2328,23 +2109,19 @@ SYSCALL ps_resend(
 )
 {
 	ps_mess_t	*mp;			/* message pointer	*/
+	long mess;
 	ps_port_t	*pp;			/* port pointer		*/
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
 
-	mp = get_mess();
-	if(pp->nmess++) {
-		pp->last->next = mp;
-		pp->last = mp;
-	}
-	else 
-		pp->first = pp->last = mp;
-
+	mess = get_mess();
+	pp->mq.push_back(mess);
+	mp = mess_pool.get_mp(mess);
 	mp->sender = ps_myself;
 	mp->port = mp->org_port = port;
 	mp->ack_port = ack_port;
@@ -2357,7 +2134,6 @@ SYSCALL ps_resend(
 		mp->did = derive_dye (ps_htp->did);
 		log_angio_event (ps_htp, dye_ptr(ps_htp->did), "wBegin");
 	}
-	mp->next = NULL_MESS_PTR;
 	if(ts_flag && ps_htp != DRIVER_PTR) {
 		sprintf(string, "sending message %ld to task %ld via port %ld",
 			mp->mid, pp->owner, port);
@@ -2387,7 +2163,7 @@ SYSCALL	ps_send(
 )
 {
 /* WCS - 17 July 1999 - Copied checks so that error reported accurately */
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
@@ -2411,22 +2187,19 @@ SYSCALL	ps_send_priority(
 )
 {
 	ps_mess_t	*mp;			/* message pointer	*/
+	long mess;
 	ps_port_t	*pp;			/* port pointer		*/
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
 
-	mp = get_mess();
-	if(pp->nmess++) {
-		pp->last->next = mp;
-		pp->last = mp;
-	}
-	else 
-		pp->first = pp->last = mp;
+	mess = get_mess();
+	pp->mq.push_back(mess);
+	mp = mess_pool.get_mp(mess);
 
 	mp->sender = ps_myself;
 	mp->port = mp->org_port = port;
@@ -2436,7 +2209,6 @@ SYSCALL	ps_send_priority(
 	mp->text = text;
 	mp->ts = ps_now;
 	mp->pri = priority;
-	mp->next = NULL_MESS_PTR;
 	mp->mid = next_mid++;
 	if (angio_flag) {
 		mp->did = derive_dye (ps_htp->did);
@@ -2450,15 +2222,15 @@ SYSCALL	ps_send_priority(
 		}
 		else if (ps_task_ptr(pp->owner)->code == port_set_surrogate) {
 			if (port != ps_std_port(pp->owner)){
-				sprintf(string, 
+				sprintf(string,
 				    "sending message %ld to task %ld via port %ld",
-				    mp->mid, ps_task_ptr(pp->owner)->parent, 
+				    mp->mid, ps_task_ptr(pp->owner)->parent,
 				    port);
 				ts_report(ps_htp, string);
 			}
 		}
 		else if (pp->owner != 0) {
-			sprintf(string, 
+			sprintf(string,
 			    "sending message %ld to task %ld via port %ld",
 			    mp->mid, pp->owner, port);
 			ts_report(ps_htp, string);
@@ -2492,17 +2264,17 @@ SYSCALL	ps_lock(
 	if(lock < 0)
 		return(BAD_PARAM("lock"));
 
-	while(lock >= ps_lock_tab.tab_size) {
-		ps_lock_tab.used = ps_lock_tab.tab_size;
+	while(lock >= ps_lock_tab.get_tab_size()) {
+		//ps_lock_tab.get_used() = ps_lock_tab.get_tab_size();
 		if(get_table_entry(&ps_lock_tab) == SYSERR)
 			return(OTHER_ERR("growing lock table"));
-		for(i = ps_lock_tab.tab_size/2; i < ps_lock_tab.tab_size; i++) {
+		for(i = ps_lock_tab.get_tab_size()/2; i < ps_lock_tab.get_tab_size(); i++) {
 			lp =  lock_ptr(i);
 			lp->state = UNLOCKED;
 			lp->owner = lp->queue = NULL_TASK;
 			lp->count = 0;
 		}
-	} 
+	}
 
 	if(angio_flag) {
 		sprintf(string, "wLockSpinning %ld", lock);
@@ -2542,7 +2314,7 @@ SYSCALL	ps_lock(
 	}
 	return(OK);
 }
-		
+
 /************************************************************************/
 
 SYSCALL	ps_reset_semaphore(
@@ -2558,18 +2330,18 @@ SYSCALL	ps_reset_semaphore(
 	char		string[30];		/* trace string		*/
 	ps_tp_pair_t	*pp;			/* tp pair pointer	*/
 	ps_tp_pair_t	*opp;			/* old tp pair pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	//void	free_pair();			/* tp pair sink		*/
 
 	if(sid < 0)
 		return(BAD_PARAM("sid"));
 	if(value < 0)
 		return(BAD_PARAM("value"));
 
-	while(sid >= ps_sema_tab.tab_size) {
-		ps_sema_tab.used = ps_sema_tab.tab_size;
+	while(sid >= ps_sema_tab.get_tab_size()) {
+		//ps_sema_tab.get_used() = ps_sema_tab.get_tab_size();
 		if(get_table_entry(&ps_sema_tab) == SYSERR)
 			return(OTHER_ERR("growing semaphore table"));
-		for(i = ps_sema_tab.tab_size/2; i < ps_sema_tab.tab_size; i++) {
+		for(i = ps_sema_tab.get_tab_size()/2; i < ps_sema_tab.get_tab_size(); i++) {
 			sp =  sema_ptr(i);
 			sp->queue = NULL_PAIR_PTR;
 			sp->count = 1;
@@ -2579,7 +2351,7 @@ SYSCALL	ps_reset_semaphore(
 	if(ts_flag) {
 		sprintf(string, "resetting semaphore %ld to value %ld", sid, value);
 		ts_report(ps_htp, string);
-	} 
+	}
 	if(angio_flag) {
 		sprintf(string, "wSemaReset %ld %ld", sid, value);
 		ps_log_user_event(string);
@@ -2609,21 +2381,21 @@ SYSCALL ps_signal_semaphore(
 	ps_sema_t		*sp;		/* semaphore pointer	*/
 	char		string[30];		/* trace string		*/
 	ps_tp_pair_t	*qpp;			/* tp queue pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	// void	free_pair();			/* tp pair sink		*/ Note that these are old-style C things
 
 	if(sid < 0)
 		return(BAD_PARAM("sid"));
 
-	while(sid >= ps_sema_tab.tab_size) {
-		ps_sema_tab.used = ps_sema_tab.tab_size;
+	while(sid >= ps_sema_tab.get_tab_size()) {
+		//ps_sema_tab.get_used() = ps_sema_tab.get_tab_size();
 		if(get_table_entry(&ps_sema_tab) == SYSERR)
 			return(OTHER_ERR("growing semaphore table"));
-		for(i = ps_sema_tab.tab_size/2; i < ps_sema_tab.tab_size; i++) {
+		for(i = ps_sema_tab.get_tab_size()/2; i < ps_sema_tab.get_tab_size(); i++) {
 			sp =  sema_ptr(i);
 			sp->queue = NULL_PAIR_PTR;
 			sp->count = 1;
 		}
-	} 
+	}
 
 	if(ts_flag) {
 		sprintf(string, "signalling semaphore %ld", sid);
@@ -2641,7 +2413,7 @@ SYSCALL ps_signal_semaphore(
 		free_pair(qpp);
 	}
 	return(OK);
-}	
+}
 
 /************************************************************************/
 
@@ -2659,7 +2431,7 @@ SYSCALL	ps_unlock(
 	long	i, n;				/* loop indices		*/
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 
-	if(lock < 0 || lock >= ps_lock_tab.tab_size)
+	if(lock < 0 || lock >= ps_lock_tab.get_tab_size())
 		return(BAD_PARAM("lock"));
 	if((lp = lock_ptr(lock))->state == UNLOCKED)
 		return(OK);
@@ -2686,13 +2458,13 @@ SYSCALL	ps_unlock(
 	}
 
 	if(lp->queue == NULL_TASK) {
-		lp->owner = NULL_TASK; 
+		lp->owner = NULL_TASK;
 		lp->state = UNLOCKED;
 	}
 	else {
 		tp = ps_task_ptr(lp->queue);
 		n = ps_choice(lp->count);
-		for(i = 0; i < n; i++) 
+		for(i = 0; i < n; i++)
 			tp = ps_task_ptr(tp->next);
 		lp->owner = tid(tp);
 		dq_lock(tp);
@@ -2708,7 +2480,7 @@ SYSCALL	ps_unlock(
 
 	return(OK);
 }
-		
+
 /************************************************************************/
 
 SYSCALL	ps_wait_semaphore(
@@ -2729,21 +2501,21 @@ SYSCALL	ps_wait_semaphore(
 	if(sid < 0)
 		return(BAD_PARAM("sid"));
 
-	while(sid >= ps_sema_tab.tab_size) {
-		ps_sema_tab.used = ps_sema_tab.tab_size;
+	while(sid >= ps_sema_tab.get_tab_size()) {
+		//ps_sema_tab.get_used() = ps_sema_tab.get_tab_size();
 		if(get_table_entry(&ps_sema_tab) == SYSERR)
 			return(OTHER_ERR("growing semaphore table"));
-		for(i = ps_sema_tab.tab_size/2; i < ps_sema_tab.tab_size; i++) {
+		for(i = ps_sema_tab.get_tab_size()/2; i < ps_sema_tab.get_tab_size(); i++) {
 			sp =  sema_ptr(i);
 			sp->queue = NULL_PAIR_PTR;
 			sp->count = 1;
 		}
-	} 
+	}
 
 	if(ts_flag) {
 		sprintf(string, "waiting on semaphore %ld", sid);
 		ts_report(ps_htp, string);
-	} 
+	}
 	if(angio_flag) {
 		sprintf(string, "wSemaBlocked %ld", sid);
 		ps_log_user_event(string);
@@ -2759,7 +2531,7 @@ SYSCALL	ps_wait_semaphore(
 		pp->next = NULL_PAIR_PTR;
 		qpp = sp->queue;
 		while(qpp) {
-			opp = qpp; 
+			opp = qpp;
 			qpp = qpp->next;
 		}
 		if(qpp != sp->queue)
@@ -2773,7 +2545,7 @@ SYSCALL	ps_wait_semaphore(
 		ps_log_user_event(string);
 	}
 	return(OK);
-}	
+}
 
 /************************************************************************/
 /*		Statistics Related SYSCALLS				*/
@@ -2789,14 +2561,14 @@ SYSCALL	ps_block_stats(
 {
 	long	tid;
 
-	if(bs_time >= 0.0) 
+	if(bs_time >= 0.0)
 		return(BAD_CALL("ps_block_stats has already been called"));
 	if(nb < 2)
 		return(BAD_PARAM("nb"));
 	if(delay < 0.0 || delay > (ps_run_time - ps_now))
 		return(BAD_PARAM("delay"));
 
-	ps_resume (tid = ps_create("Block Stat Collector", 0, ANY_HOST, 
+	ps_resume (tid = ps_create("Block Stat Collector", 0, ANY_HOST,
 	    block_stats_collector, MAX_PRIORITY));
 	adjust_priority(tid, MAX_PRIORITY+4);
 	ps_resend(ps_std_port(tid), nb, delay, "", NULL_PORT);
@@ -2818,13 +2590,13 @@ SYSCALL	ps_get_stat(
 {
 	ps_stat_t	*sp;			/* statistics pointer	*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
-		return(BAD_PARAM("stat"));
+	//if(stat < 0 || stat >= ps_stat_tab.get_used())
+	//	return(BAD_PARAM("stat"));
 
 	switch((sp = stat_ptr(stat))->type) {
 
 	case SAMPLE:
-		
+
 		*osp = sp->values.sam.count;
 		if(*osp)
 			*meanp = sp->values.sam.sum/ *osp;
@@ -2836,7 +2608,7 @@ SYSCALL	ps_get_stat(
 
 		*osp = ps_now - sp->values.var.start;
 		if(*osp > 0.0) {
-			sp->values.var.integral += (ps_now - 
+			sp->values.var.integral += (ps_now -
 		    	sp->values.var.old_time) *
 		    	sp->values.var.old_value;
 			sp->values.var.old_time = ps_now;
@@ -2852,7 +2624,7 @@ SYSCALL	ps_get_stat(
 		break;
 
 	default:
-		
+
 		return(BAD_CALL("Invalid statistic type"));
 	}
 
@@ -2869,44 +2641,18 @@ SYSCALL	ps_open_stat(
 	long	type				/* type of statistic	*/
 )
 {
-	ps_stat_t	*sp;			/* statistic pointer	*/
 	long	stat;				/* statistic index	*/
+	//printf("In ps_open_stat\n");
 
 	if(bs_time >= 0.0 && bs_time < ps_now)
 		return(BAD_CALL("Doesn't work once block stats is in effect"));
 	if(type != SAMPLE && type != VARIABLE && type != RATE)
 		return(BAD_PARAM("type"));
-	if((stat = get_table_entry(&ps_stat_tab)) == SYSERR)
-		return(OTHER_ERR("growing statistics table"));
 
-	sp = stat_ptr(stat);
-
-	if(!(sp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	strcpy(sp->name, name);
-	sp->resid = 0.0;
-	switch (sp->type = type) {
-
-	case SAMPLE:
-		sp->values.sam.count = 0;
-		sp->values.sam.sum = 0.0;
-		break;
-
-	case VARIABLE:
-		sp->values.var.start = sp->values.var.old_time = ps_now;
-		sp->values.var.old_value = 0.0;
-		sp->values.var.integral = 0.0; 
-		break;
-
-	case RATE:
-		sp->values.rat.start = ps_now;
-		sp->values.rat.count = 0;
-		break;
-
-	}
+	stat = dump.add_stat(name, type, ps_now);
 	return(stat);
 }
-	
+
 /************************************************************************/
 
 SYSCALL	para_open_stat(
@@ -2924,7 +2670,7 @@ SYSCALL	para_open_stat(
 	*para_stat_ptr(stat) = new_stat;
 	return new_stat;
 }
-	
+
 /************************************************************************/
 
 SYSCALL	ps_record_rate_stat(
@@ -2936,7 +2682,7 @@ SYSCALL	ps_record_rate_stat(
 {
 	ps_stat_t	*sp;			/* statistics pointer	*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
 		return(BAD_PARAM("stat"));
 
 	if ((sp = stat_ptr(stat))->type != RATE)
@@ -2962,12 +2708,12 @@ SYSCALL	ps_add_stat(
 	ps_stat_t	*sp;			/* statistics pointer	*/
 	double 	temp;				/* temporary		*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
 		return(BAD_PARAM("stat"));
 
 	switch((sp = stat_ptr(stat))->type) {
-	
-	case SAMPLE:	
+
+	case SAMPLE:
 		sp->resid += value;
 		temp = sp->values.sam.sum + sp->resid;
 		sp->resid += (sp->values.sam.sum - temp);
@@ -2975,7 +2721,7 @@ SYSCALL	ps_add_stat(
         break;
 
 	default:
-		
+
 		return(BAD_CALL("Only works for SAMPLE statistics"));
 	}
 
@@ -2995,8 +2741,8 @@ SYSCALL	ps_reset_stat(
 {
 	ps_stat_t	*sp;			/* statistics pointer	*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
-		return(BAD_PARAM("stat"));
+	//if(stat < 0 || stat >= ps_stat_tab.get_used())
+	//	return(BAD_PARAM("stat"));
 
 	switch((sp = stat_ptr(stat))->type) {
 
@@ -3029,7 +2775,7 @@ SYSCALL	ps_reset_all_stats(void)
 {
 	long	stat;				/* loop index		*/
 
-	for(stat = 0; stat < ps_stat_tab.used; stat++) 
+	for(stat = 0; stat < ps_stat_tab.get_used(); stat++)
 		ps_reset_stat(stat);
 
 	return(OK);
@@ -3049,15 +2795,15 @@ SYSCALL  ps_record_stat(
 	double 	temp;				/* temporary		*/
 	double	delta;				/* time delta		*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
 	  /*	return(BAD_PARAM("stat")); */
 	        return(SYSERR);
 
 	sp = stat_ptr(stat);
 
 	switch( sp->type ) {
-	
-	case SAMPLE:	
+
+	case SAMPLE:
 		(sp->values.sam.count)++;
 		sp->resid += value;
 		temp = sp->values.sam.sum + sp->resid;
@@ -3074,13 +2820,13 @@ SYSCALL  ps_record_stat(
 		sp->resid += (delta * sp->values.var.old_value);
 		temp = sp->values.var.integral + sp->resid;
 		sp->resid += (sp->values.var.integral - temp);
-		sp->values.var.integral = temp; 
+		sp->values.var.integral = temp;
 		sp->values.var.old_time = ps_now;
 		sp->values.var.old_value = value;
 		break;
 
 	default:
-		
+
 	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
 	     return(SYSERR);
 	}
@@ -3106,13 +2852,13 @@ SYSCALL	ps_record_stat2(
 	double 	temp;				/* temporary		*/
 	double	delta;				/* time delta		*/
 
-	if(stat < 0 || stat >= ps_stat_tab.used)
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
 	  /*	return(BAD_PARAM("stat")); */
 	  return(SYSERR);
 
 	switch((sp = stat_ptr(stat))->type) {
-	
-	case SAMPLE:	
+
+	case SAMPLE:
 		(sp->values.sam.count)++;
 		sp->resid += value;
 		temp = sp->values.sam.sum + sp->resid;
@@ -3129,13 +2875,13 @@ SYSCALL	ps_record_stat2(
 		sp->resid += (delta * sp->values.var.old_value);
 		temp = sp->values.var.integral + sp->resid;
 		sp->resid += (sp->values.var.integral - temp);
-		sp->values.var.integral = temp; 
+		sp->values.var.integral = temp;
 		sp->values.var.old_time = start;
 		sp->values.var.old_value = value;
 		break;
 
 	default:
-		
+
 	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
 	  return(SYSERR);
 	}
@@ -3145,19 +2891,136 @@ SYSCALL	ps_record_stat2(
 #endif
 ;
 
+/************************************************************************/
+
+#if !defined(__WINNT__) && !defined(__CYGWIN__)
+SYSCALL  ps_record_stat(
+/* Records a statistic sample or value.					*/
+
+	long	stat,				/* statistics index	*/
+	double	value				/* sample | value	*/
+)
+{
+	ps_stat_t	*sp;			/* statistics pointer	*/
+	double 	temp;				/* temporary		*/
+	double	delta;				/* time delta		*/
+
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
+	  /*	return(BAD_PARAM("stat")); */
+	        return(SYSERR);
+
+	sp = stat_ptr(stat);
+
+	switch( sp->type ) {
+
+	case SAMPLE:
+		(sp->values.sam.count)++;
+		sp->resid += value;
+		temp = sp->values.sam.sum + sp->resid;
+		sp->resid += (sp->values.sam.sum - temp);
+		sp->values.sam.sum = temp;
+		break;
+
+	case VARIABLE:
+
+		if((delta = ps_now - sp->values.var.old_time) == 0.0) {
+			sp->values.var.old_value = value;
+			return(OK);
+		}
+		sp->resid += (delta * sp->values.var.old_value);
+		temp = sp->values.var.integral + sp->resid;
+		sp->resid += (sp->values.var.integral - temp);
+		sp->values.var.integral = temp;
+		sp->values.var.old_time = ps_now;
+		sp->values.var.old_value = value;
+		break;
+
+	default:
+
+	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
+	     return(SYSERR);
+	}
+
+	return(OK);
+}
+#endif
+;
+
+/************************************************************************/
+
+#if !defined(__WINNT__) && !defined(__CYGWIN__)
+SYSCALL	ps_record_stat2(
+
+/* Records a statistic sample or value.					*/
+
+	long	stat,				/* statistic index	*/
+	double	value,				/* sample | value	*/
+	double  start				/* Start time.		*/
+)
+{
+	ps_stat_t	*sp;			/* statistics pointer	*/
+	double 	temp;				/* temporary		*/
+	double	delta;				/* time delta		*/
+
+	if(stat < 0 || stat >= ps_stat_tab.get_used())
+	  /*	return(BAD_PARAM("stat")); */
+	  return(SYSERR);
+
+	switch((sp = stat_ptr(stat))->type) {
+
+	case SAMPLE:
+		(sp->values.sam.count)++;
+		sp->resid += value;
+		temp = sp->values.sam.sum + sp->resid;
+		sp->resid += (sp->values.sam.sum - temp);
+		sp->values.sam.sum = temp;
+		break;
+
+	case VARIABLE:
+
+		if((delta = start - sp->values.var.old_time) == 0.0) {
+			sp->values.var.old_value = value;
+			return(OK);
+		}
+		sp->resid += (delta * sp->values.var.old_value);
+		temp = sp->values.var.integral + sp->resid;
+		sp->resid += (sp->values.var.integral - temp);
+		sp->values.var.integral = temp;
+		sp->values.var.old_time = start;
+		sp->values.var.old_value = value;
+		break;
+
+	default:
+
+	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
+	  return(SYSERR);
+	}
+
+	return(OK);
+}
+#endif
+;
+
+/************************************************************************/
+
+
+
+
 long ps_get_node_stat_index(
-    
+
 /* Return the index to the internal node utilization statistic. */
 
 	long node_id				/* Node id 		*/
 )
 {
-	ps_node_t * np = node_ptr( node_id );
+	/* ps_node_t * np = node_ptr( node_id );
 	if ( !np )  {
 		return BAD_PARAM("node id");
 	} else {
 		return np->stat;
 	}
+	*/
+	return node_id;
 }
 
 
@@ -3174,38 +3037,33 @@ void	ps_stats(void)
 	long	stat;				/* statistic index	*/
 	ps_stat_t	*sp;			/* statistic pointer	*/
 	char	name[40];			/* statistic name	*/
-	void *	copy;				/* working copy		*/
+	std::vector <ps_stat_t*>	wcp;				/* working copy		*/
 	long	bytes;				/* size of table	*/
 
 /*	Make a sorted working copy so that we can prlong the stats in	*/
 /*	sorted order but don't invalidate any id's.			*/
 
-	bytes = ps_stat_tab.used * ps_stat_tab.entry_size;
-	if (!(copy = malloc(bytes)))
-		ps_abort("Insufficient Memory");
-	memcpy (copy, (void*)ps_stat_tab.base, bytes);
-	qsort (copy, ps_stat_tab.used, ps_stat_tab.entry_size,
-	    (compar)stat_compare);
+	wcp = dump.sorted_stats();
 
 	printf("\n\nSimulation statistics for time = %G.\n", ps_now);
 	printf("\n Name\t\t\t\t\tType\t  Mean\tObs(#|interval)\n\n");
 
-	for(stat = 0; stat < ps_stat_tab.used; stat++) {
-	  sp = (ps_stat_t*)((char *)copy + stat * ps_stat_tab.entry_size);
-		padstr(name, sp->name, 38);
+	for(stat = 0; stat < wcp.size(); stat++) {
+		sp = wcp[stat];
+		padstr(name, sp->name.c_str(), 38);
 		printf("%s", name);
 
 		switch(sp->type) {
 
 		case SAMPLE:
 			if(sp->values.sam.count)
-				printf("\tSAMPLE\t%8G\t%ld\n", 
-				    sp->values.sam.sum/sp->values.sam.count, 
+				printf("\tSAMPLE\t%8G\t%ld\n",
+				    sp->values.sam.sum/sp->values.sam.count,
 				    sp->values.sam.count);
 			else
 				printf("\tSAMPLE\t%8G\t%d\n", 0.0, 0);
 			break;
-	
+
 		case VARIABLE:
 			if(ps_now != sp->values.var.old_time) {
 				sp->values.var.integral += (ps_now -
@@ -3213,8 +3071,8 @@ void	ps_stats(void)
 				    sp->values.var.old_value;
 				sp->values.var.old_time = ps_now;
 			}
-			if((delta = ps_now - sp->values.var.start) > 0.0) 
-				printf("\tVAR\t%8G\t%G\n", 
+			if((delta = ps_now - sp->values.var.start) > 0.0)
+				printf("\tVAR\t%8G\t%G\n",
 				   sp->values.var.integral/
 				   delta, delta);
 			else
@@ -3223,7 +3081,7 @@ void	ps_stats(void)
 
 		case RATE:
 			if (ps_now != sp->values.rat.start)
-				printf("\tRATE\t%8G\t%ld\n", 
+				printf("\tRATE\t%8G\t%ld\n",
 				    (double)sp->values.rat.count/
 				    (ps_now-sp->values.rat.start),
 				    sp->values.rat.count);
@@ -3231,18 +3089,14 @@ void	ps_stats(void)
 				printf("\tVAR\t%8G\t%G\n", 0.0, 0.0);
 			break;
 
-	
+
 		default:
 			warning("Bad stat entry");
 		}
 	}
 	printf("\n\n");
-
-
-/*	Cleanup our working copy					*/
-	free (copy);
 }
-	
+
 
 
 /************************************************************************/
@@ -3288,7 +3142,7 @@ SYSCALL ps_build_bus(
 	if(ncount < 2)
 		return(BAD_PARAM("ncount"));
 	for(i = 0, nap = node_array; i < ncount; i++, nap++)
-		if(*nap >= ps_node_tab.used || *nap < 0)
+		if(*nap >= ps_node_tab.get_used() || *nap < 0)
 			return(BAD_PARAM("node_array"));
 	if(trans_rate <= 0.0)
 		return(BAD_PARAM("trans_rate"));
@@ -3298,9 +3152,7 @@ SYSCALL ps_build_bus(
 		return(OTHER_ERR("growing bus table"));
 
 	bp = bus_ptr(bus);
-	if(!(bp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	sprintf(bp->name, "%s", name);
+	bp->name = std::string(name);
 	bp->state = BUS_IDLE;
 	bp->nnodes = ncount;
 	if(!(bp->bnode = (long *) malloc(sizeof(long) * ncount)))
@@ -3308,16 +3160,11 @@ SYSCALL ps_build_bus(
 	while(ncount--) {
 		bp->bnode[ncount] = *node_array++;
 		np = node_ptr(bp->bnode[ncount]);
-		if(!(cp = (ps_comm_t *) malloc(sizeof(ps_comm_t))))
-			ps_abort("Insufficient memory");
-		cp->next = np->bus_list;
-		np->bus_list = cp;
-		cp->blid = bus;
+		ps_comm_t temp; temp.blid = bus;
+		np->bus_list.push_front(temp);
 	}
 	bp->trate = trans_rate;
-	bp->nqueued = 0;
 	bp->discipline = discipline;
-	bp->head = bp->tail = NULL_MESS_PTR;
 	bp->ep = NULL_EVENT_PTR;
 	if(sf) {
 		snprintf(stat_name, MAX_STRING_LEN, "%s Utilization", name);
@@ -3331,7 +3178,7 @@ SYSCALL ps_build_bus(
 
 /************************************************************************/
 
-SYSCALL ps_build_link( 
+SYSCALL ps_build_link(
 
 /* Constructs a one-way link between "source" and "destination" nodes 	*/
 /* with a specified transmission rate "trans_rate".  Queueing is 	*/
@@ -3350,9 +3197,9 @@ SYSCALL ps_build_link(
 	ps_comm_t	*cp;			/* comm pointer		*/
 	char	stat_name[MAX_STRING_LEN];	/* statistics name	*/
 
-	if(source >= ps_node_tab.used || source < 0)
+	if(source >= ps_node_tab.get_used() || source < 0)
 		return(BAD_PARAM("source"));
-	if(destination >= ps_node_tab.used || destination < 0)
+	if(destination >= ps_node_tab.get_used() || destination < 0)
 		return(BAD_PARAM("destination"));
 	if(trans_rate <= 0.0)
 		return(BAD_PARAM("trans_rate"));
@@ -3362,26 +3209,19 @@ SYSCALL ps_build_link(
 		return(BAD_CALL("source == destination"));
 
 	lp = link_ptr(link);
-	if(!(lp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	sprintf(lp->name, "%s", name);
+	lp->name = std::string(name);
 	lp->state = LINK_IDLE;
 	lp->snode = source;
 	np = node_ptr(source);
-	if(!(cp = (ps_comm_t *) malloc(sizeof(ps_comm_t))))
-		ps_abort("Insufficient memory");
-	cp->next = np->sl_list;
-	cp->blid = link;
-	np->sl_list = cp;
+
+	ps_comm_t temp; temp.blid = link;
+	np->sl_list.push_front(temp);
 	lp->dnode = destination;
+
 	np = node_ptr(destination);
-	if(!(cp = (ps_comm_t *) malloc(sizeof(ps_comm_t))))
-		ps_abort("Insufficient memory");
-	cp->next = np->rl_list;
-	cp->blid = link;
-	np->rl_list = cp;
+	temp.blid = link;
+	np->rl_list.push_front(temp);
 	lp->trate = trans_rate;
-	lp->head = lp->tail = NULL_MESS_PTR;
 	lp->ep = NULL_EVENT_PTR;
 	if(sf) {
 		snprintf(stat_name, MAX_STRING_LEN, "%s Utilization", name);
@@ -3395,7 +3235,7 @@ SYSCALL ps_build_link(
 
 /************************************************************************/
 
-SYSCALL ps_build_node( 
+SYSCALL ps_build_node(
 
 /* Constructs a named node with "ncpu" processors with a speed factor	*/
 /* "speed" which scales the durations of TASK_COMPUTING, TASK_SYNC and 	*/
@@ -3416,7 +3256,6 @@ SYSCALL ps_build_node(
 	long	node;				/* node id index	*/
 	ps_node_t	*np;			/* node pointer		*/
 	char	stat_name[MAX_STRING_LEN];	/* statistics name	*/
-
 	if(ncpu < 1)
 		return(BAD_PARAM("ncpu"));
 	if(speed <= 0.)
@@ -3425,72 +3264,10 @@ SYSCALL ps_build_node(
 		return(BAD_PARAM("quantum"));
 	if(discipline < 0 || (discipline > 2 && discipline!=5)) /*5 stand for cfs */
 		return(BAD_PARAM("discipline"));
-	if((node = get_table_entry(&ps_node_tab)) == SYSERR)
-		return(OTHER_ERR("growing node table"));
 
-	np = node_ptr(node);
-	if(!(np->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	sprintf(np->name, "%s", name);
-	np->ncpu = np->nfree = ncpu;
-	np->build_time = ps_now;
-	np->sf = sf;
-	if (sf & SF_PER_NODE) {
-		snprintf(stat_name, MAX_STRING_LEN, "%s Utilization",
-		    name);
-		np->stat = ps_open_stat(stat_name, VARIABLE);
-	}
-	if (sf & SF_PER_TASK_NODE) {
-		if (!(np->ts_tab =
-		    (ps_table_t*)malloc(sizeof(ps_table_t))))
-			ps_abort("Insufficient Memory");
-		init_table(np->ts_tab, DEFAULT_MAX_TASKS,
-		    sizeof(long));
-		for (j = 0; j < DEFAULT_MAX_TASKS; j++)
-			*ts_stat_ptr(np->ts_tab, j) = -1;
-	}
-	if(!(np->cpu = (ps_cpu_t *) malloc(sizeof(ps_cpu_t)*ncpu)))
-		ps_abort("Insufficient memory");
-	for(i = 0; i < np->ncpu; i++) {
-		np->cpu[i].state = CPU_IDLE;
-		np->cpu[i].run_task = NULL_TASK;
-		np->cpu[i].ts_tab = NULL;
-		np->cpu[i].catcher = NULL_TASK;
-		np->cpu[i].scheduler = NULL_TASK;
-		np->cpu[i].last_task = NULL_TASK;
-		np->cpu[i].stat = NULL_STAT;
-		np->cpu[i].port_n=0;
-		np->cpu[i].group_rq=NULL_CFSRQ_PTR;  /* pointer of group rq */
-		if (sf & SF_PER_HOST) {
-			snprintf(stat_name, MAX_STRING_LEN, "%s (cpu %ld) Utilization",
-			    name, i);
-			np->cpu[i].stat = ps_open_stat(stat_name, VARIABLE);
-		}
-		if (sf & SF_PER_TASK_HOST) {
-			if (!(np->cpu[i].ts_tab =
-			    (ps_table_t*)malloc(sizeof(ps_table_t))))
-				ps_abort("Insufficient Memory");
-			init_table(np->cpu[i].ts_tab, DEFAULT_MAX_TASKS,
-			    sizeof(long));
-			for (j = 0; j < DEFAULT_MAX_TASKS; j++)
-				*ts_stat_ptr(np->cpu[i].ts_tab, j) = -1;
-		}
- 	}
-
-	np->speed = speed;
-	np->rtrq = NULL_TASK;
-	np->quantum = quantum;
-	np->discipline = discipline;
-	np->sl_list = NULL_COMM_PTR;
-	np->rl_list = NULL_COMM_PTR;
-	np->bus_list = NULL_COMM_PTR;
-	np->ngroup=0;
-	
-	/* if the discipline is CFS, construct a cfs-rq for the node 	*/
-	if (discipline==CFS)
-		ps_build_node_cfs(node);
-	else 
-		np->host_rq=NULL_CFSRQ_PTR;
+	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf, ps_now);
+	printf("ps_build_node finished making node # %d!\n", node);
+	// ps_open_stat(stat_name, VARIABLE); // Needs more tuning.
 	return(node);
 }
 
@@ -3502,11 +3279,11 @@ SYSCALL ps_build_node2(
 /* "speed" which scales the durations of TASK_COMPUTING, TASK_SYNC and 	*/
 /* TASK_BLOCKED states. The quantum duration is specified by quantum, 	*/
 /* and the user defined scheduling task is specified by "scheduler". 	*/
-/* "sl" denotes the level of utilization statistics to gather.		*/  
+/* "sl" denotes the level of utilization statistics to gather.		*/
 
-	const	char	*name, 
-	long	ncpu, 
-	double	speed, 
+	const	char	*name,
+	long	ncpu,
+	double	speed,
  	void 	(*scheduler)(void *),
 	long	sf
 )
@@ -3535,9 +3312,9 @@ SYSCALL ps_build_node2(
 	}
 	return nid;
 }
-	
+
 /************************************************************************/
-SYSCALL ps_build_node_cfs( 
+SYSCALL ps_build_node_cfs(
 
 /* Constructs a cfs_rq for the node whose discipline is CFS.		*/
 
@@ -3548,9 +3325,9 @@ SYSCALL ps_build_node_cfs(
 	long	i;				/* loop indices		*/
 	struct 	ps_node_t	* np;		/* node pointer		*/
 	struct 	ps_cfs_rq_t 	* host_rq;
-	
+
 	np = node_ptr(node);
-	
+
 	if(!(host_rq = (ps_cfs_rq_t *) malloc(sizeof(ps_cfs_rq_t)*(np->ncpu))))
 		ps_abort("Insufficient memory");
 	np->host_rq=host_rq;
@@ -3564,8 +3341,8 @@ SYSCALL ps_build_node_cfs(
 
 }
 /************************************************************************/
-/* WCS - sep, 2008 - Added , build a group */ 
-SYSCALL ps_build_group( 
+/* WCS - sep, 2008 - Added , build a group */
+SYSCALL ps_build_group(
 
 	const	char	*name,			/* group name		*/
 	double	group_share,			/* group share		*/
@@ -3584,8 +3361,8 @@ SYSCALL ps_build_group(
 	struct  ps_cpu_t	* hp;
 	char	stat_name[MAX_STRING_LEN];	/* statistics name	*/
 
-	if( node >= ps_node_tab.used || node < 0 )
-		return(BAD_PARAM("node"));	
+	if( node >= ps_node_tab.get_used() || node < 0 )
+		return(BAD_PARAM("node"));
 	if(group_share < 0.)
 		return(BAD_PARAM("group share"));
 	if((group = get_table_entry(&ps_group_tab)) == SYSERR)
@@ -3602,7 +3379,7 @@ SYSCALL ps_build_group(
 	gp->share=group_share;
 	gp->node=node;
 	gp->cap=cap;
-	gp->ntask=0;	
+	gp->ntask=0;
 	gp->group_id2=ngroup;
 	if (np->discipline==CFS){
 
@@ -3635,7 +3412,7 @@ SYSCALL ps_build_group(
 		gp->stat = ps_open_stat(stat_name, VARIABLE);
 	}
 	if (SF_PER_TASK_NODE) {
-		if (!(gp->ts_tab = (ps_table_t*)malloc(sizeof(ps_table_t))))
+		if (!(gp->ts_tab = (ps_table_t<long>*)malloc(sizeof(ps_table_t<long>))))
 			ps_abort("Insufficient Memory");
 		init_table(gp->ts_tab, DEFAULT_MAX_TASKS, sizeof(long));
 		for (j = 0; j < DEFAULT_MAX_TASKS; j++)
@@ -3645,7 +3422,7 @@ SYSCALL ps_build_group(
 }
 
 /************************************************************************/
-/* WCS - 7 June 1999 - Added */ 
+/* WCS - 7 June 1999 - Added */
 /* WCS - 13 July 1999 - Fixed for idle cpu */
 
 SYSCALL	ps_curr_priority(
@@ -3659,7 +3436,7 @@ SYSCALL	ps_curr_priority(
 	ps_node_t	*np;			/* node pointer		*/
 	long		run_task;
 
-	if(node < 0 || node >= ps_node_tab.used)
+	if(node < 0 || node >= ps_node_tab.get_used())
 		return(BAD_PARAM("node"));
 	np = node_ptr(node);
 	if((host < 0) || (host >= np->ncpu))
@@ -3672,7 +3449,7 @@ SYSCALL	ps_curr_priority(
 		return (MIN_PRIORITY - 1);
 
 }
-	
+
 /************************************************************************/
 
 SYSCALL	ps_headroom(void)
@@ -3712,7 +3489,7 @@ double	ps_erlang(
 	long	i;				/* loop index		*/
 
 	prod = 1.0;
-	for(i = 0; i < kernel; i++ ) 
+	for(i = 0; i < kernel; i++ )
 		prod *= drand48();
 	return(-mean*log(prod)/kernel);
 }
@@ -3735,16 +3512,6 @@ SYSCALL	ps_run_parasol(
 	if(seed < 0)
 		return(BAD_PARAM("seed"));
 
- 	
-
-#if !HAVE_SIGALTSTACK || _WIN32 || _WIN64
-/*	Test stack for loading direction and jmp_buf index		*/
-	if(sp_tester(&sp_dir, &sp_ind, &sp_delta) == SYSERR)
-		sp_dss = sp_delta * 20 * sizeof(double);
-	else
-		sp_dss = get_dss (flags & RPF_TRACE);
-#endif
-
 /* 	Initialize PARASOL times, flags and tables			*/
 
 	ps_now = 0.0;
@@ -3755,20 +3522,6 @@ SYSCALL	ps_run_parasol(
 	ts_flag = (flags & RPF_TRACE) ? TRUE : FALSE;
 	w_flag = (flags & RPF_WARNING) ? TRUE : FALSE;
 	bs_time = -1.0;
-	init_table(&ps_node_tab, DEFAULT_MAX_NODES, sizeof(ps_node_t));
-	init_table(&ps_group_tab, DEFAULT_MAX_GROUPS, sizeof(ps_group_t));
-	init_table(&ps_bus_tab, DEFAULT_MAX_BUSES, sizeof(ps_bus_t));
-	init_table(&ps_link_tab, DEFAULT_MAX_LINKS, sizeof(ps_link_t));
-	init_event();
-	init_locks();
-	init_semaphores();
-	init_table(&ps_port_tab, DEFAULT_MAX_PORTS, sizeof(ps_port_t));
-	init_table(&ps_task_tab, DEFAULT_MAX_TASKS, sizeof(ps_task_t));
-	init_table(&ps_sched_info_tab, DEFAULT_MAX_TASKS, sizeof(sched_info));
-	init_table(&ps_stat_tab, DEFAULT_MAX_STATS, sizeof(ps_stat_t));
-	init_table(&ps_para_stat_tab, DEFAULT_MAX_STATS, sizeof(long));
-	init_table(&ps_pool_tab, DEFAULT_MAX_POOLS, sizeof(ps_buf_t));
-	init_table(&ps_dye_tab, DEFAULT_MAX_DYES, sizeof(ps_dye_t));
 
 
 /*	Seed the random number generator 				*/
@@ -3778,8 +3531,11 @@ SYSCALL	ps_run_parasol(
 /*	Build node 0 & launch reaper (& genesis)			*/
 
 	ps_htp = DRIVER_PTR;
+	printf("Before ps_build_node!\n");
 	ps_build_node("PARASOL Node", 1, 1.0, 0.0, PR, FALSE);
-	rid = ps_create("Reaper", 0, 0, reaper, MAX_PRIORITY);
+	rid = 1;
+	reaper(nullptr);
+	printf("After reaper!\n");
 	reaper_port = ps_std_port(rid);
 	ps_resume(rid);
 
@@ -3791,7 +3547,7 @@ SYSCALL	ps_run_parasol(
 
 	/* NOTREACHED */
 	return 0;
-}		
+}
 
 /************************************************************************/
 
@@ -3808,24 +3564,24 @@ SYSCALL	ps_schedule(
 	ps_task_t	*tp;
 	ps_cpu_t	*hp;
 
-	if (ps_htp->host == ANY_HOST 
-	    || ps_myself != (np = 
+	if (ps_htp->host == ANY_HOST
+	    || ps_myself != (np =
 	    node_ptr(ps_my_node))->cpu[ps_htp->host].scheduler)
 		return(BAD_CALL("Caller is not a scheduler task"));
 	if (host < 0 || host > np->ncpu)
 		return(BAD_PARAM("host"));
-	if (task != NULL_TASK 
-	    && (task < 0 || task > ps_task_tab.tab_size
+	if (task != NULL_TASK
+	    && (task < 0 || task > ps_task_tab.get_tab_size()
 	    || ((tp = ps_task_ptr(task))->node != ps_my_node)
 	    || (tp->uhost != ANY_HOST && tp->uhost != host)))
 		return(BAD_PARAM("task"));
 
 	hp = &np->cpu[host];
 
- 	if (hp->last_task != NULL_TASK) 
-		adjust_priority(hp->last_task, 
+ 	if (hp->last_task != NULL_TASK)
+		adjust_priority(hp->last_task,
 		    ps_task_ptr(hp->last_task)->upriority);
-	
+
 	if (task == NULL_TASK)
 		ps_suspend(hp->catcher);
 	else {
@@ -3899,7 +3655,7 @@ SYSCALL ps_inject_trace_name (
 		if (isspace(name[i]))
 			return(BAD_PARAM("name"));
 
-	
+
 	end_trace (ps_htp);			/* End old trace	*/
 	did = create_dye (name);		/* Create new dye	*/
 	start_trace (ps_htp, did);		/* Start new trace	*/
@@ -3946,9 +3702,9 @@ SYSCALL ps_log_user_event (
 
 	log_angio_event (ps_htp, dye_ptr(ps_htp->did), event);
 	return OK;
-}	
+}
 
-/************************************************************************/	
+/************************************************************************/
 /*		Glocal variable related SYSCALLS			*/
 /************************************************************************/
 
@@ -4013,7 +3769,7 @@ SYSCALL	ps_share_glocal (
 		return(BAD_CALL("Task is not subscribed to environment"));
 
 	if (ps_myself >= ep->ntasks) {
-		if ((temp = (long*)malloc (sizeof(long)*(ps_myself+TASK_DELTA))) 
+		if ((temp = (long*)malloc (sizeof(long)*(ps_myself+TASK_DELTA)))
 		    == NULL)
 			ps_abort ("Memory allocation error");
 		if (ep->ntasks) {
@@ -4025,8 +3781,8 @@ SYSCALL	ps_share_glocal (
 			ep->indices[i] = -1;
 		ep->ntasks = ps_myself + TASK_DELTA;
 	}
-	if (ep->indices[ps_myself] != -1 
-	    && ep->indices[ps_myself] != ep->indices[task] ) 
+	if (ep->indices[ps_myself] != -1
+	    && ep->indices[ps_myself] != ep->indices[task] )
 		return(BAD_CALL("Caller is subscribed to the environment"));
 
 	ep->indices[ps_myself] = ep->indices[task];
@@ -4034,7 +3790,7 @@ SYSCALL	ps_share_glocal (
 	return OK;
 }
 
-	
+
 
 /************************************************************************/
 
@@ -4060,7 +3816,7 @@ SYSCALL	ps_subscribe_glocal (
 
 	ep = env_ptr(env);
 	if (ps_myself >= ep->ntasks) {
-		if ((temp2 = (long*)malloc (sizeof(long)*(ps_myself+TASK_DELTA))) 
+		if ((temp2 = (long*)malloc (sizeof(long)*(ps_myself+TASK_DELTA)))
 		    == NULL)
 			ps_abort ("Memory allocation error");
 		if (ep->ntasks) {
@@ -4075,11 +3831,11 @@ SYSCALL	ps_subscribe_glocal (
 	if (ep->indices[ps_myself] == -1) {
 		ep->indices[ps_myself] = ep->nsubscribers++;
 		if (ep->nsubscribers > ep->nallocated) {
-			for (i = 0; i < ep->var_tab.tab_size; i++) {
+			for (i = 0; i < ep->var_tab.get_tab_size(); i++) {
 				if ((vp = var_ptr(ep, i))->used) {
 					bytes = vp->width*(ep->nallocated+SUBSCRIBER_DELTA);
 					if (!(temp = (void*)malloc(bytes)))
-						ps_abort("Memory allocation error"); 
+						ps_abort("Memory allocation error");
 					memset(temp, '\0', bytes);
 					if (ep->nallocated) {
 						memcpy (temp, vp->data, vp->width*ep->nallocated);
@@ -4091,8 +3847,8 @@ SYSCALL	ps_subscribe_glocal (
 			ep->nallocated += SUBSCRIBER_DELTA;
 		}
 	}
-	return OK;	
-}		
+	return OK;
+}
 
 /************************************************************************/
 
@@ -4103,16 +3859,16 @@ void *ps_glocal_value (
 /*	want to consider implementing this as a macro once everything	*/
 /*	is debugged, for obvious performance reasons.			*/
 
-	long		env,			/* environment id	*/	
+	long		env,			/* environment id	*/
 	long		gloc			/* variable id		*/
 )
 {
 	ps_env_t	*ep;
 	ps_var_t	*vp;
 
-	if (env < 0 || gloc < 0 || env >= ps_env_tab.tab_size)
+	if (env < 0 || gloc < 0 || env >= ps_env_tab.get_tab_size())
 		ps_abort("Bad glocal variable reference 1");
-	if (!(ep = env_ptr(env))->used || gloc >= ep->var_tab.tab_size)
+	if (!(ep = env_ptr(env))->used || gloc >= ep->var_tab.get_tab_size())
 		ps_abort("Bad glocal variable reference 2");
 	if (!(vp = var_ptr(ep, gloc))->used)
 		ps_abort("Bad glocal variable reference 3");
@@ -4174,9 +3930,9 @@ double	blocked_stat_outputer(long stat)
 	}
 
 	sp = stat_ptr(stat);
-	ps = sum + stat; 
-	pss = sumsq + stat; 
-	padstr(name, sp->name, 38);
+	ps = sum + stat;
+	pss = sumsq + stat;
+	padstr(name, sp->name.c_str(), 38);
 	printf("%s", name);
 	mean = *ps/nb;
 	stddev = sqrt(fabs((*pss - (*ps)*(*ps)/nb)/(nb*(nb-1))));
@@ -4191,7 +3947,7 @@ void	para_own_block_stats_outputer()
 {
 	long	para_stat;				/* statistics index	*/
 
-	for(para_stat = 0; para_stat < ps_para_stat_tab.used; para_stat++) {
+	for(para_stat = 0; para_stat < ps_para_stat_tab.get_used(); para_stat++) {
 		blocked_stat_outputer(*para_stat_ptr(para_stat));
 	}
 }
@@ -4203,7 +3959,7 @@ void	para_block_stats_outputer()
 {
 	long	stat;				/* statistics index	*/
 
-	printf("\n\nBlocked simulation statistics for time = %G.\n", 
+	printf("\n\nBlocked simulation statistics for time = %G.\n",
 	    ps_run_time);
 	printf("\n Name\t\t\t\t\t  Mean\t\t95%% Interval\t99%% Interval\n\n");
 
@@ -4214,15 +3970,15 @@ void	para_block_stats_outputer()
 /*	Make a sorted working copy so that we can prlong the stats in	*/
 /*	sorted order but don't invalidate any id's.			*/
 
-	bytes = ps_stat_tab.used * ps_stat_tab.entry_size;
+	bytes = ps_stat_tab.get_used() * ps_stat_tab.entry_size;
 	if (!(copy = (long)malloc(bytes)))
 		ps_abort("Insufficient Memory");
 	memcpy ((void*)copy, (void*)ps_stat_tab.base, bytes);
-	qsort ((void*)copy, ps_stat_tab.used, ps_stat_tab.entry_size,
+	qsort ((void*)copy, ps_stat_tab.get_used(), ps_stat_tab.entry_size,
 	    stat_compare);
 #endif /* UNDEF */
 
-	for(stat = 0; stat < ps_stat_tab.used; stat++) {
+	for(stat = 0; stat < ps_stat_tab.get_used(); stat++) {
 		blocked_stat_outputer(stat);
 	}
 	printf("\n\n");
@@ -4267,30 +4023,30 @@ LOCAL	void	block_stats_collector(void * arg)
  	for(i = 0; i < nb; i++) {		/* collect block stats	*/
 		ps_sleep(period);
 		if (i == 0) {
- 			if (!(sum = (double*)malloc(ps_stat_tab.used*sizeof(double))))
+ 			if (!(sum = (double*)malloc(ps_stat_tab.get_used()*sizeof(double))))
 				ps_abort("Insufficient Memory");
-			memset (sum, '\0', ps_stat_tab.used*sizeof(double));
- 			if (!(sumsq = (double*)malloc(ps_stat_tab.used*sizeof(double))))
+			memset (sum, '\0', ps_stat_tab.get_used()*sizeof(double));
+ 			if (!(sumsq = (double*)malloc(ps_stat_tab.get_used()*sizeof(double))))
 				ps_abort("Insufficient Memory");
-			memset (sumsq, '\0', ps_stat_tab.used*sizeof(double));
+			memset (sumsq, '\0', ps_stat_tab.get_used()*sizeof(double));
 		}
 		ps = sum;
 		pss = sumsq;
-		for (stat = 0; stat < ps_stat_tab.used; stat++) {
+		for (stat = 0; stat < ps_stat_tab.get_used(); stat++) {
 			ps_get_stat(stat, &value, &junk);
 			ps_reset_stat(stat);
 			*ps++ += value;
 			*pss++ += value*value;
 		}
 	}
-	
+
 /* WCS - 12 June 1999 - ps_sync on node 0 can cause no stats report */
 	ps_run_time /= 2;
 
 	block_stats_outputer();
 
 	ps_run_time -= 1.1;  /* where does 1.1 come from ? (WCS) */
-	
+
 	ps_sleep(1.0);
 }
 
@@ -4326,8 +4082,8 @@ LOCAL  	void	port_set_surrogate(void * arg)
 	long	did;				/* dye id		*/
 
 	ps_receive(ps_my_std_port, NEVER, &r_port, &ts, &tp, &f_port);
-	while(TRUE) { 
-		if(port_receive(FIFO,r_port, NEVER, &type, &ts, &tp, &rp, &op, 
+	while(TRUE) {
+		if(port_receive(FIFO,r_port, NEVER, &type, &ts, &tp, &rp, &op,
 		    &mid, &did) == SYSERR)
 			ps_kill(ps_myself);
 		port_send(f_port, type, ts, tp, rp, r_port, mid, did);
@@ -4336,7 +4092,7 @@ LOCAL  	void	port_set_surrogate(void * arg)
 
 /************************************************************************/
 
-LOCAL	void	reaper(void * arg)
+LOCAL	void	reaper(void*)
 
 /* Grim reaper task assists suicides by accepting kill requests.  It is */
 /* is the ancestor of all user tasks including genesis which it launches*/
@@ -4350,18 +4106,11 @@ LOCAL	void	reaper(void * arg)
 	char	string[TEMP_STR_SIZE];			/* abort string		*/
 
 	/* WCS - 3 Sept 1997 - Made Genesis stack larger */
-	ps_resume(ps_create2("Genesis", 0, 0, ps_genesis, MAX_PRIORITY, 0,4.0));
-	while(TRUE) {
-		ps_receive(ps_my_std_port, NEVER, &type, &ts, &tp, &task);
-		if(type == SUICIDE) {
-			if(ps_kill(task) == SYSERR) {
-				sprintf(string, "Reaper fails to kill %ld",
-				    task);
-				warning(string);
-			}
-		}
-		
-	}
+	printf("Starting ps_genesis!\n");
+	ps_genesis((void*) 0);
+	printf("After ps_genesis!\n");
+	dump.print_all_stored();
+   return;
 }
 
 /************************************************************************/
@@ -4382,7 +4131,7 @@ LOCAL 	void 	shared_port_dispatcher(void * arg)
 	long     op;				/* original port	*/
 	long	mid;				/* message id		*/
 	long	did;				/* dye id		*/
-	
+
 	if((queue_port = ps_allocate_port("Message Queue", ps_myself)) ==
 	    SYSERR)
 		ps_kill(ps_myself);
@@ -4400,8 +4149,8 @@ LOCAL 	void 	shared_port_dispatcher(void * arg)
 			else {
 				port_receive(FIFO, queue_port, NEVER, &t1, &t2,
 				    &t3, &t4, &op, &mid, &did);
-				if(port_send(rp, t1, t2, t3, t4, op, mid, did) 
-				    == SYSERR) { 
+				if(port_send(rp, t1, t2, t3, t4, op, mid, did)
+				    == SYSERR) {
 					port_send(queue_port, t1, t2, t3, t4,
 					    op, mid, did);
 					--state;
@@ -4411,7 +4160,7 @@ LOCAL 	void 	shared_port_dispatcher(void * arg)
 
 		case SP_CANCEL:
 			while(TRUE) {
-				ps_receive(queue_port, NEVER, &t1, &t2, &t3, 
+				ps_receive(queue_port, NEVER, &t1, &t2, &t3,
 				    &t4);
 				if(t4 == rp)
 					break;
@@ -4420,9 +4169,9 @@ LOCAL 	void 	shared_port_dispatcher(void * arg)
 			}
 			--state;
 			break;
-			
+
  		default:
-			if(--state < 0) 
+			if(--state < 0)
 				port_send(queue_port, type, ts, tp, rp, op,
 				    mid, did);
 			else {
@@ -4432,15 +4181,15 @@ LOCAL 	void 	shared_port_dispatcher(void * arg)
 					if(port_send(t4, type, ts, tp, rp, op,
 					    mid, did) == OK)
 						break;
-					else 
+					else
 						--state;
-				}						 
+				}
 			}
 			break;
 		}
 	}
 }
-	
+
 
 /************************************************************************/
 
@@ -4448,18 +4197,18 @@ LOCAL void driver(void)
 
 /* Handles events and advances the global time "now" when appropriate.	*/
 /* The debugger is invoked or the simulation is aborted or terminated 	*/
-/* as appropriate.							*/ 
+/* as appropriate.							*/
 
 {
 	ps_event_t	*ep;			/* event pointer	*/
 	ps_event_t	*next_event();		/* next event function	*/
 	void	(*handler_tab[14])(ps_event_t *ep) = {
 			end_sync_handler,
-			end_compute_handler, 
+			end_compute_handler,
 			end_quantum_handler,
 			end_trans_handler,
 			end_sleep_handler,
-			end_receive_handler, 
+			end_receive_handler,
 			end_block_handler,
 			link_failure_handler,
 			link_repair_handler,
@@ -4469,7 +4218,7 @@ LOCAL void driver(void)
 			node_repair_handler,
 			user_event_handler
 	};
-		
+
 	while(TRUE) {
 		if(step_flag)
 			debug();
@@ -4482,7 +4231,8 @@ LOCAL void driver(void)
 #ifdef STACK_TESTING
 		  test_all_stacks();
 #endif /* STACK_TESTING */
-		  ps_abort("Empty calendar");
+		  //ps_abort("Empty calendar");
+		  return; // It should actually fail, but...
 		}
 		if(ep->time < ps_now)
 			ps_abort("Attempt to move time backwards");
@@ -4490,12 +4240,12 @@ LOCAL void driver(void)
 			ps_now = ps_run_time;
 			return;
 		}
-		if(ep->time > ps_now) 
+		if(ep->time > ps_now)
 			ps_now = ep->time;
 		(*handler_tab[ep->type])(ep);
 	}
 }
- 
+
 /************************************************************************/
 
 LOCAL	void	end_block_handler(
@@ -4523,7 +4273,7 @@ LOCAL	void	end_block_handler(
 }
 
 /************************************************************************/
- 
+
 LOCAL	void	end_compute_handler(
 
 /* Handles END_COMPUTE events						*/
@@ -4570,17 +4320,17 @@ LOCAL 	void	end_quantum_handler(
 	np = node_ptr(tp->node);
 	tp->qep = NULL_EVENT_PTR;
 	switch(tp->state) {
- 
+
 	case TASK_SPINNING:
 	case TASK_COMPUTING:
-		if(np->discipline == FCFS) 
+		if(np->discipline == FCFS)
 			find_priority(np, hp, MIN_PRIORITY - 1);
 		else{
 			qxflag = TRUE;
 			find_priority(np, hp, tp->priority - 1);
 		}
 		break;
-	
+
 	case TASK_SYNC:
 	case TASK_SYNC_SUSPEND:
 	case TASK_SYNC_FREE:
@@ -4623,7 +4373,7 @@ LOCAL	void	end_sleep_handler(
 	ps_task_t	*tp;			/* task pointer		*/
 	ps_node_t 	*np;			/* node pointer		*/
 
-	if((tp = ps_task_ptr((size_t)ep->gp))->state != TASK_SLEEPING)  
+	if((tp = ps_task_ptr((size_t)ep->gp))->state != TASK_SLEEPING)
 		ps_abort("Bad end sleep event");
 	tp->tep = NULL_EVENT_PTR;
 	np=node_ptr(tp->node);
@@ -4717,25 +4467,24 @@ LOCAL	void	end_trans_handler(
 	if((mp->port == NULL_PORT)  ||
 	    ((pp = port_ptr(mp->port))->state == PORT_FREE))
 		warning("Message target port undefined");
-	if((pp->owner == NULL_TASK) || ((tp = ps_task_ptr(pp->owner))->state 
+	if((pp->owner == NULL_TASK) || ((tp = ps_task_ptr(pp->owner))->state
 	    == TASK_FREE))
 		warning("Message target task undefined");
-	
+
 	switch(mp->c_code) {
 	case BUS:
 		bp = bus_ptr(mp->blid);
-		if(--(bp->nqueued)) {
-			bp->head = bp->head->next;
+		bp->mq.pop_front();
+		if(bp->mq.empty() == false) { // if bp->nqueued - 1 greater than 0
 			bp->ep = add_event(ps_now + bus_delay, END_TRANS,
-			    (long *)bp->head);
+			    (long *)mess_pool.get_mp(bp->mq.front()));
 		}
 		else {
-			bp->head = bp->tail = NULL_MESS_PTR;
 			bp->state = BUS_IDLE;
 			if(bp->stat != NULL_STAT)
 				ps_record_stat(bp->stat, 0.0);
 			bp->ep = NULL_EVENT_PTR;
-		}			
+		}
 		for(i = 0; i < bp->nnodes; i++)
 			if(bp->bnode[i] == tp->node)
 				break;
@@ -4747,14 +4496,12 @@ LOCAL	void	end_trans_handler(
 
 	case LINK:
 		lp = link_ptr(mp->blid);
-		if(lp->head->next != NULL_MESS_PTR) {
-			
-			lp->head = lp->head->next;
+		if(lp->mq.empty() == false) {
+			lp->mq.pop();
 			lp->ep = add_event(ps_now + link_delay, END_TRANS,
-			    (long *)lp->head);
+			    (long *)mess_pool.get_mp(lp->mq.front()));
 		}
 		else {
-			lp->head = lp->tail = NULL_MESS_PTR;
 			lp->state = LINK_IDLE;
 			if(lp->stat != NULL_STAT)
 				ps_record_stat(lp->stat, 0.0);
@@ -4771,12 +4518,8 @@ LOCAL	void	end_trans_handler(
 	}
 
 /*	Message got thru - queue it on the port and try to start owner	*/
-
-	mp->next = NULL_MESS_PTR;
-	if((pp->nmess)++) 
-		pp->last = pp->last->next = mp;		
-	else
-		pp->first = pp->last = mp;
+	// TODO later
+	//pp->mq.push(mp);
 
 	if(tp->state == TASK_RECEIVING && tp->wport == mp->port) {
 		tp->wport = NULL_PORT;
@@ -4785,7 +4528,7 @@ LOCAL	void	end_trans_handler(
 		find_host(tp);
 	}
 }
-						
+
 /************************************************************************/
 /*		Parasol Scheduler Support Functions			*/
 /************************************************************************/
@@ -4818,31 +4561,13 @@ ps_event_t	*add_event(
 	ep->time = time;
 	ep->type = type;
 	ep->gp = gp;
-	if(time <= (epf = calendar[0].next)->time){
-		ep->next = epf;
-		ep->prior = epf->prior;
-		calendar[0].next = epf->prior = ep;
-	}
-	else if((time+time) < (epf->time+(epl=calendar[1].prior)->time)) {
-		while(time > epf->time) epf = epf->next;	
-		ep->next = epf;
-		ep->prior = epf->prior;
-		epf->prior->next = ep;
-		epf->prior = ep;
-	}							
-	else {
-		while(time < epl->time) epl = epl->prior;	
-		ep->next = epl->next;
-		ep->prior = epl;
-		epl->next->prior = ep;
-		epl->next = ep;
-	}
+   // Eh, just don't do anything, couldn't possibly hurt.
 #if defined(DEBUG)
 	print_event( "add_event", ep );
 #endif
 	return(ep);
 }
-	
+
 /************************************************************************/
 
 LOCAL	void	dq_ready(
@@ -4856,10 +4581,10 @@ LOCAL	void	dq_ready(
 	long	task;				/* task index		*/
 	ps_task_t	*btp = 0;
 	ps_task_t	 *ctp = 0;		/* task pointers	*/
-	
+
 	if(np->discipline==CFS){
 		task=tid(tp);
-		
+
 		dq_cfs_task(tp);
 
 	}
@@ -4871,13 +4596,13 @@ LOCAL	void	dq_ready(
 	}
 	if(task == NULL_TASK)
 		ps_abort("Ready task missing from ready-to-run queue");
-	if(task == np->rtrq) 
+	if(task == np->rtrq)
 		np->rtrq = ctp->next;
 	else
 		btp->next = ctp->next;
 	}
 }
-	
+
 /************************************************************************/
 
 LOCAL	void	find_host(
@@ -4892,6 +4617,7 @@ LOCAL	void	find_host(
 	ps_task_t	*tp			/* task pointer		*/
 )
 {
+   printf("In find_host()\n");
 	ps_node_t	*np;			/* node pointer		*/
 	long	host;				/* host cpu id index	*/
 	long	i;				/* loop index		*/
@@ -4903,21 +4629,23 @@ LOCAL	void	find_host(
 
 	host = NULL_HOST;
 	tp->sched_time = ps_now;		/* Ready to run now!	*/
+	printf("finding node\n");
 	np=node_ptr(tp->node);
+	printf("found dummy node?\n");
 	if(np->discipline==CFS ){
 		find_host_cfs(tp);
 		return;
 	}
 
-	
+   printf("Looking for free host\n");
 /* 	First look for a free host					*/
 	if((np = node_ptr(tp->node))->nfree
-	    && (np->cpu[0].scheduler == NULL_TASK 
+	    && (np->cpu[0].scheduler == NULL_TASK
 	    || tp->priority > MAX_PRIORITY)) {
-		if(tp->host == ANY_HOST || 
+		if(tp->host == ANY_HOST ||
 		   np->cpu[tp->host].state == CPU_IDLE) {
-			if(tp->host == ANY_HOST) { 
-				for(host = 0; host < np->ncpu; host++) 
+			if(tp->host == ANY_HOST) {
+				for(host = 0; host < np->ncpu; host++)
 					if(np->cpu[host].state == CPU_IDLE)
 						break;
 			}
@@ -4925,7 +4653,7 @@ LOCAL	void	find_host(
 				host = tp->host;
 			np->cpu[host].state = CPU_BUSY;
 			(np->nfree)--;
-			if(np->sf & SF_PER_HOST) 
+			if(np->sf & SF_PER_HOST)
 				ps_record_stat(np->cpu[host].stat, 1.0);
 			if(np->sf & SF_PER_NODE)
 				ps_record_stat(np->stat, np->ncpu - np->nfree);
@@ -4933,17 +4661,17 @@ LOCAL	void	find_host(
 	}
 
 /* 	If necessary look for host with preemptable task		*/
-
+   printf("Looking for preemptable task\n");
 	phost = NULL_HOST;
 	if(host == NULL_HOST && np->discipline == PR
-	    && (np->cpu[0].scheduler == NULL_TASK 
+	    && (np->cpu[0].scheduler == NULL_TASK
 	    || tp->priority > MAX_PRIORITY)) {
 		if(tp->host == ANY_HOST) {
 			minp = tp->priority;
 			for(i = 0; i < np->ncpu; i++) {
-				ptp = ps_task_ptr(np->cpu[i].run_task); 	
-				if((ptp->priority < minp) 
-				  && (ptp->state != TASK_SYNC) 
+				ptp = ps_task_ptr(np->cpu[i].run_task);
+				if((ptp->priority < minp)
+				  && (ptp->state != TASK_SYNC)
 				  && (ptp->state != TASK_SYNC_SUSPEND)
 				  && (ptp->state != TASK_SYNC_FREE)) {
 					minp = ptp->priority;
@@ -4956,30 +4684,30 @@ LOCAL	void	find_host(
 			if((ptp->priority < tp->priority)
 		          && (ptp->state != TASK_SYNC)
 			  && (ptp->state != TASK_SYNC_SUSPEND)
-			  && (ptp->state != TASK_FREE)) 
+			  && (ptp->state != TASK_FREE))
 				phost = tp->host;
 		}
 
 		if(phost != NULL_HOST) {
-	
+
 /* 		Found a preemptable task - preempt it			*/
 
 			host = phost;
 			ptp = ps_task_ptr(np->cpu[host].run_task);
 			remove_event(ptp->qep);
 			ptp->qep = NULL_EVENT_PTR;
- 			
+
  			/*Mark the preemption time tag and start to record the preemption time. Tao*/
  			ptp->pt_tag = 1;
  			ptp-> pt_last = ps_now;
- 			/*End here*/ 
- 			
- 			
+ 			/*End here*/
+
+
  			switch(ptp->state) {
 
 			case TASK_COMPUTING:
 				ptp->rct = ptp->tep->time - ps_now;
-				
+
 			case TASK_BLOCKED:
 				remove_event(ptp->tep);
 				ptp->tep = NULL_EVENT_PTR;
@@ -4989,14 +4717,14 @@ LOCAL	void	find_host(
 				ptp->hp = NULL_HOST_PTR;
 				ready(ptp);
 				break;
-		
+
 			case TASK_HOT:
 				ptp->hp = NULL_HOST_PTR;
 				ready(ptp);
 				ps_htp = tp;
 				/* WCS - 25 May 1998 - Added np->ts_tab check below. */
 				if (np->cpu[host].ts_tab || np->ts_tab)
-					set_run_task(np, &np->cpu[host], 
+					set_run_task(np, &np->cpu[host],
 					    ps_htp);
 				else
 					np->cpu[host].run_task = ps_myself;
@@ -5011,12 +4739,13 @@ LOCAL	void	find_host(
 	}
 
 /*	If host found, make tp runnable					*/
-
+   printf("Host found?\n");
 	if(host != NULL_HOST) {
+      printf("Host found\n");
 
 		if(tp->pt_tag == 1)
 	    	{	tp->pt_tag = 0;
-	    		tp->pt_sum += (ps_now - tp->pt_last);	
+	    		tp->pt_sum += (ps_now - tp->pt_last);
 	    	}
 
 		if(ts_flag)
@@ -5029,11 +4758,11 @@ LOCAL	void	find_host(
 			np->cpu[host].run_task = task;
 		tp->hp = (ps_cpu_t *)&(np->cpu[host]);
 		if((q = np->quantum) > 0.0)
-			tp->qep = add_event(ps_now + q, END_QUANTUM, 
+			tp->qep = add_event(ps_now + q, END_QUANTUM,
 			    (long *)task);
 		if(tp->rct > 0.0) {
 			SET_TASK_STATE(tp, TASK_COMPUTING);
-			tp->tep = add_event(ps_now + tp->rct, END_COMPUTE, 
+			tp->tep = add_event(ps_now + tp->rct, END_COMPUTE,
 			    (long *)task);
 			tp->rct = 0.0;
 		}
@@ -5045,12 +4774,13 @@ LOCAL	void	find_host(
 			}
 			else if(ps_htp != tp) {
 				SET_TASK_STATE(tp, TASK_BLOCKED);
-				tp->tep = add_event(ps_now, END_BLOCK, 
+				tp->tep = add_event(ps_now, END_BLOCK,
 				    (long *)task);
 			}
 		}
-	} 
+	}
 	else {
+      printf("Host not found\n");
 		qxflag = TRUE;
 		ready(tp);
 		qxflag = FALSE;
@@ -5058,8 +4788,8 @@ LOCAL	void	find_host(
 			sched();
 	}
 }
-			
-				
+
+
 /************************************************************************/
 LOCAL 	void	find_priority(
 
@@ -5079,7 +4809,7 @@ LOCAL 	void	find_priority(
 	long	task;				/* task index		*/
 	long	host;				/* host cpu id index	*/
 	double	q;				/* cpu quantum		*/
-	
+
 	if (np->discipline==CFS){
 		find_priority_cfs(np,hp);
 		return;
@@ -5088,7 +4818,7 @@ LOCAL 	void	find_priority(
 	host = hid(np, hp);
 	tp = ps_task_ptr(hp->run_task);
 	task = np->rtrq;
-	while(task != NULL_TASK && 
+	while(task != NULL_TASK &&
 	    ((ctp = ps_task_ptr(task))->priority) > priority) {
 		if(ctp->host == ANY_HOST || ctp->host == host)
 			break;
@@ -5096,13 +4826,13 @@ LOCAL 	void	find_priority(
 		task = ctp->next;
 	}
 	if(task != NULL_TASK && ctp->priority > priority
-	    && (np->cpu[0].scheduler == NULL_TASK 
+	    && (np->cpu[0].scheduler == NULL_TASK
 	    || ctp->priority > MAX_PRIORITY)) {	/* Preempting task found*/
 		if(np->rtrq == task)
 			np->rtrq = ctp->next;
 		else{
 			btp->next = ctp->next;
-		}	
+		}
 			/* current task is preempted*/
 			tp->pt_tag = 1;
  			tp-> pt_last = ps_now;
@@ -5110,9 +4840,9 @@ LOCAL 	void	find_priority(
 			/* Preempting task */
 			if(ctp->pt_tag == 1)
 	    	{	ctp->pt_tag = 0;
-	    		ctp->pt_sum += (ps_now - ctp->pt_last);	
+	    		ctp->pt_sum += (ps_now - ctp->pt_last);
 	    	}
-		
+
 
 		if(tp->tep != NULL_EVENT_PTR) {
 			tp->rct = tp->tep->time - ps_now;
@@ -5126,17 +4856,17 @@ LOCAL 	void	find_priority(
 			ts_report(ctp, "executing");
 
 		/* WCS - 25 May 1998 - Added np->ts_tab check below. */
-		
+
 		if (hp->ts_tab || np->ts_tab)
 			set_run_task(np, hp, ps_task_ptr(task));
 		else
 			hp->run_task = task;
  		ctp->hp = hp;
 		if(q > 0.0)
-			ctp->qep = add_event(ps_now + q, END_QUANTUM, 
+			ctp->qep = add_event(ps_now + q, END_QUANTUM,
 			    (long *)hp->run_task);
 		if(ctp->rct > 0.0) {
-			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE, 
+			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE,
 			    (long *)hp->run_task);
  			ctp->rct = 0.0;
 			SET_TASK_STATE(ctp, TASK_COMPUTING);
@@ -5157,16 +4887,16 @@ LOCAL 	void	find_priority(
 		}
 		else {
 			SET_TASK_STATE(ctp, TASK_BLOCKED);
-			ctp->tep = add_event(ps_now, END_BLOCK, 
+			ctp->tep = add_event(ps_now, END_BLOCK,
 			    (long *)hp->run_task);
 		}
 	}
 	else {				/* No preempting task		*/
 		qxflag = FALSE;
 		if(ps_htp == DRIVER_PTR) {
-			if((q > 0.0) && (tp->qep == NULL_EVENT_PTR || 
+			if((q > 0.0) && (tp->qep == NULL_EVENT_PTR ||
 			    tp->qep->time <= ps_now))
-				tp->qep = add_event(ps_now+q, END_QUANTUM, 
+				tp->qep = add_event(ps_now+q, END_QUANTUM,
 				    (long *)hp->run_task);
 			else {
  				ps_htp = tp;
@@ -5197,13 +4927,19 @@ LOCAL	void	find_host_cfs(
 
 	tp->sched_time = ps_now;		/* Ready to run now!	*/
 	np=node_ptr(tp->node);
+
+	printf("In find_host_cfs() with tp: %x and np: %x\n", (size_t) tp, (size_t) np);
+
 	/* find a host with a min load */
 	if((host=tp->host)==ANY_HOST){
+      printf("Searching for host\n");
 		host=find_min_load_host(np,tp);
 	}
 	qxflag = TRUE;
 
+	printf("To ready_cfs\n");
 	ready_cfs(host,tp);
+	printf("From ready_cfs\n");
 
 
 	qxflag = FALSE;
@@ -5213,33 +4949,33 @@ LOCAL	void	find_host_cfs(
 	if(np->cpu[host].state == CPU_IDLE){
 		np->cpu[host].state = CPU_BUSY;
 		(np->nfree)--;
-		if(np->sf & SF_PER_HOST) 
+		if(np->sf & SF_PER_HOST)
 			ps_record_stat(np->cpu[host].stat, 1.0);
 		if(np->sf & SF_PER_NODE)
 			ps_record_stat(np->stat, np->ncpu - np->nfree);
-		
+
 		if(tp->pt_tag == 1)
 	    	{	tp->pt_tag = 0;
-	    		tp->pt_sum += (ps_now - tp->pt_last);	
+	    		tp->pt_sum += (ps_now - tp->pt_last);
 	    	}
 		if(ts_flag)
 			ts_report(tp, "executing");
 		task = tid(tp);
 
-		/* set this cfs task to run */	
+		/* set this cfs task to run */
 		set_cfs_task_run(tp);
-	
+
 		if (np->sf & (SF_PER_TASK_HOST | SF_PER_TASK_NODE))
 			set_run_task(np, &np->cpu[host], tp);
 		else
 			np->cpu[host].run_task = task;
 		tp->hp = (ps_cpu_t *)&(np->cpu[host]);
 		if((q = np->quantum) > 0.0)
-			tp->qep = add_event(ps_now + q, END_QUANTUM, 
+			tp->qep = add_event(ps_now + q, END_QUANTUM,
 					    (long *)task);
 		if(tp->rct > 0.0) {
 			SET_TASK_STATE(tp, TASK_COMPUTING);
-			tp->tep = add_event(ps_now + tp->rct, END_COMPUTE, 
+			tp->tep = add_event(ps_now + tp->rct, END_COMPUTE,
 					    (long *)task);
 			tp->rct = 0.0;
 		}
@@ -5251,7 +4987,7 @@ LOCAL	void	find_host_cfs(
 			}
 			else if(ps_htp != tp) {
 				SET_TASK_STATE(tp, TASK_BLOCKED);
-				tp->tep = add_event(ps_now, END_BLOCK, 
+				tp->tep = add_event(ps_now, END_BLOCK,
 						    (long *)task);
 			}
 		}
@@ -5264,7 +5000,7 @@ LOCAL	void	find_host_cfs(
 	}
 }
 
-/************************************************************************/			
+/************************************************************************/
 LOCAL 	void	find_priority_cfs(
 
 /* Finds a ready task with larger fair than running task and makes	*/
@@ -5291,7 +5027,7 @@ LOCAL 	void	find_priority_cfs(
 	/* update the running task	*/
 	update_run_task(tp);
 
-	/* if the group with cap share	*/	
+	/* if the group with cap share	*/
 	if(tp->group!=-1) {
 		if((tp->si->parent->fair<0) && ((gp=group_ptr(tp->group))->cap)) {
 			cap_handler(tp);
@@ -5328,7 +5064,7 @@ LOCAL 	void	find_priority_cfs(
 			/* Preempting task */
 			if(ctp->pt_tag == 1)
 	    	{	ctp->pt_tag = 0;
-	    		ctp->pt_sum += (ps_now - ctp->pt_last);	
+	    		ctp->pt_sum += (ps_now - ctp->pt_last);
 	    	}
  		if(ts_flag)
 			ts_report(ctp, "executing");
@@ -5337,17 +5073,17 @@ LOCAL 	void	find_priority_cfs(
 		set_cfs_task_run(ctp);
 
 		/* WCS - 25 May 1998 - Added np->ts_tab check below. */
-		
+
 		if (hp->ts_tab || np->ts_tab)
 			set_run_task(np, hp, ps_task_ptr(task));
 		else
 			hp->run_task = task;
  		ctp->hp = hp;
 		if(q > 0.0)
-			ctp->qep = add_event(ps_now + q, END_QUANTUM, 
+			ctp->qep = add_event(ps_now + q, END_QUANTUM,
 					     (long *)hp->run_task);
 		if(ctp->rct > 0.0) {
-			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE, 
+			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE,
 					     (long *)hp->run_task);
  			ctp->rct = 0.0;
 			SET_TASK_STATE(ctp, TASK_COMPUTING);
@@ -5368,17 +5104,17 @@ LOCAL 	void	find_priority_cfs(
 		}
 		else {
 			SET_TASK_STATE(ctp, TASK_BLOCKED);
-			ctp->tep = add_event(ps_now, END_BLOCK, 
+			ctp->tep = add_event(ps_now, END_BLOCK,
 					     (long *)hp->run_task);
 		}
 	}
 	else {				/* No preempting task		*/
 		qxflag = FALSE;
-		
+
 		if(ps_htp == DRIVER_PTR) {
-			if((q > 0.0) && (tp->qep == NULL_EVENT_PTR || 
+			if((q > 0.0) && (tp->qep == NULL_EVENT_PTR ||
 					 tp->qep->time <= ps_now))
-				tp->qep = add_event(ps_now+q, END_QUANTUM, 
+				tp->qep = add_event(ps_now+q, END_QUANTUM,
 						    (long *)hp->run_task);
 			else {
  				ps_htp = tp;
@@ -5392,7 +5128,7 @@ LOCAL 	void	find_priority_cfs(
 /************************************************************************/
 
 LOCAL	void	find_ready(
-		
+
 /* Finds and dequeues a ready task making it either TASK_COMPUTING,	*/
 /* TASK_HOT, or TASK_BLOCKED depending on whether there is remaining 	*/
 /* cpu time or if the caller is the simulation driver.  If no runnable	*/
@@ -5407,55 +5143,61 @@ LOCAL	void	find_ready(
 	ps_task_t	*btp, *ctp;		/* task pointers	*/
 	long	host;				/* host cpu id index	*/
 	double	q;				/* cpu quantum		*/
+	printf("In find_ready()\n");
 
 	if(np->discipline==CFS ){
-		find_ready_cfs(np,hp);		
+		find_ready_cfs(np,hp);
 		return;
 	}
 
-	host = hid(np, hp);	
+	host = hid(np, hp);
+	if (np->rtrq < 0) np->rtrq = 0;
+	np->rtrq = (np->rtrq + 1) % dump.get_tasks_size();
 	task = np->rtrq;
 	while(task != NULL_TASK) {
-		if((ctp = ps_task_ptr(task))->host == ANY_HOST 
-		    || ctp->host == host)
+		printf("Searching in find_ready() with task number %d\n", task);
+		if((ctp = ps_task_ptr(task))->host == ANY_HOST
+		    || ctp->host == host || 1)
 			break;
 		btp = ctp;
 		task = ctp->next;
 		}
-	if(task != NULL_TASK		
-	    && (np->cpu[0].scheduler == NULL_TASK 
-	    || ctp->priority > MAX_PRIORITY)) {	/* Ready task found	*/
-	    
+	//dummy_node.cpu = dummy_cpu_location; // Even more jank :D
+	hp = dummy_cpu_location;
+	printf("task, node, ctp are %d, %x, %x\n", task, np, ctp);
+	// Just assume no tasks available since I broke everything.
+	if(0){
+	//(task != NULL_TASK && (np->cpu[0].scheduler == NULL_TASK || ctp->priority > MAX_PRIORITY))) {	/* Ready task found	*/
 	    	/* Clear the premption tag and add the current to the total preemption time. Tao*/
 	    	if(ctp->pt_tag == 1)
 	    	{	ctp->pt_tag = 0;
-	    		ctp->pt_sum += (ps_now - ctp->pt_last);	
+	    		ctp->pt_sum += (ps_now - ctp->pt_last);
 	    	}
-	    	/* End here*/ 
-	    
+	    	/* End here*/
+
 		if(ts_flag)
 			ts_report(ctp, "executing");
 		if(np->rtrq == task)
 			np->rtrq = ctp->next;
 		else
 			btp->next = ctp->next;
-		
+
 		/* WCS - 14 April 1998 - Added np->ts_tab check below. */
-				
+
 		if (hp->ts_tab || np->ts_tab)
 			set_run_task(np, hp, ps_task_ptr(task));
 		else
 			hp->run_task = task;
  		ctp->hp = hp;
 		if((q = np->quantum))
-			ctp->qep = add_event(ps_now + q, END_QUANTUM, 
+			ctp->qep = add_event(ps_now + q, END_QUANTUM,
 			    (long *)hp->run_task);
 		if(ctp->rct > 0.0) {
 			SET_TASK_STATE(ctp, TASK_COMPUTING);
  			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE,
 			    (long *)hp->run_task);
 			ctp->rct = 0.0;
-			if((ps_htp != DRIVER_PTR) && (ps_htp->state != 
+			if((ps_htp != DRIVER_PTR) && (ps_htp->state !=
 			    TASK_HOT)) {
 				btp = ps_htp;
 				ps_htp = DRIVER_PTR;
@@ -5464,7 +5206,7 @@ LOCAL	void	find_ready(
 		}
 		else if((ps_htp != DRIVER_PTR) && (ps_htp->state == TASK_HOT)) {
 			SET_TASK_STATE(ctp, TASK_BLOCKED);
-			ctp->tep = add_event(ps_now, END_BLOCK, 
+			ctp->tep = add_event(ps_now, END_BLOCK,
 			    (long *)hp->run_task);
 		}
 		else {
@@ -5483,6 +5225,7 @@ LOCAL	void	find_ready(
 	else {				/* No ready task available	*/
 		(np->nfree)++;
 		hp->state = CPU_IDLE;
+
 		if(np->sf & SF_PER_HOST)
 			ps_record_stat(hp->stat, 0.0);
 		if(np->sf & SF_PER_NODE)
@@ -5491,14 +5234,14 @@ LOCAL	void	find_ready(
 			set_run_task(np, hp, NULL_TASK_PTR);
 		else
 			hp->run_task = NULL_TASK;
- 		if((ps_htp != DRIVER_PTR) && (ps_htp->state != TASK_HOT)) 
+ 		if((ps_htp != DRIVER_PTR) && (ps_htp->state != TASK_HOT))
 			sched();
 	}
 }
 
 /************************************************************************/
 LOCAL	void	find_ready_cfs(
-		
+
 /* Finds and dequeues a ready task making it either TASK_COMPUTING,	*/
 /* TASK_HOT, or TASK_BLOCKED depending on whether there is remaining 	*/
 /* cpu time or if the caller is the simulation driver.  If no runnable	*/
@@ -5525,30 +5268,30 @@ LOCAL	void	find_ready_cfs(
 		/* check whether is a preempted task. */
 		if(ctp->pt_tag == 1)
 	    {	ctp->pt_tag = 0;
-	    	ctp->pt_sum += (ps_now - ctp->pt_last);	
+	    	ctp->pt_sum += (ps_now - ctp->pt_last);
 	    }
 
 		if(ts_flag)
 			ts_report(ctp, "executing");
-		
+
 		/* set the cfs_task to run */
 		set_cfs_task_run(ctp);
 /* WCS - 14 April 1998 - Added np->ts_tab check below. */
-				
+
 		if (hp->ts_tab || np->ts_tab)
 			set_run_task(np, hp, ps_task_ptr(task));
 		else
 			hp->run_task = task;
  		ctp->hp = hp;
 		if((q = np->quantum))
-			ctp->qep = add_event(ps_now + q, END_QUANTUM, 
+			ctp->qep = add_event(ps_now + q, END_QUANTUM,
 			    (long *)hp->run_task);
 		if(ctp->rct > 0.0) {
 			SET_TASK_STATE(ctp, TASK_COMPUTING);
  			ctp->tep = add_event(ps_now + ctp->rct, END_COMPUTE,
 			    (long *)hp->run_task);
 			ctp->rct = 0.0;
-			if((ps_htp != DRIVER_PTR) && (ps_htp->state != 
+			if((ps_htp != DRIVER_PTR) && (ps_htp->state !=
 			    TASK_HOT)) {
 				btp = ps_htp;
 				ps_htp = DRIVER_PTR;
@@ -5557,7 +5300,7 @@ LOCAL	void	find_ready_cfs(
 		}
 		else if((ps_htp != DRIVER_PTR) && (ps_htp->state == TASK_HOT)) {
 			SET_TASK_STATE(ctp, TASK_BLOCKED);
-			ctp->tep = add_event(ps_now, END_BLOCK, 
+			ctp->tep = add_event(ps_now, END_BLOCK,
 			    (long *)hp->run_task);
 		}
 		else {
@@ -5571,7 +5314,7 @@ LOCAL	void	find_ready_cfs(
 				ctxsw(&btp->context, &ps_htp->context);
 			}
 		}
-	
+
 	}
 	else {				/* No ready task available	*/
 		(np->nfree)++;
@@ -5584,7 +5327,7 @@ LOCAL	void	find_ready_cfs(
 			set_run_task(np, hp, NULL_TASK_PTR);
 		else
 			hp->run_task = NULL_TASK;
- 		if((ps_htp != DRIVER_PTR) && (ps_htp->state != TASK_HOT)) 
+ 		if((ps_htp != DRIVER_PTR) && (ps_htp->state != TASK_HOT))
 			sched();
 	}
 }
@@ -5623,6 +5366,7 @@ LOCAL	ps_event_t	*next_event(void)
 {
 	ps_event_t	*ep, *cep;		/* event pointers	*/
 
+	return(NULL_EVENT_PTR);
 	if((cep = calendar)->next->next == NULL_EVENT_PTR)
 		return(NULL_EVENT_PTR);
 
@@ -5633,7 +5377,7 @@ LOCAL	ps_event_t	*next_event(void)
 	event_fl = ep;
 	return(ep);
 }
-	
+
 /************************************************************************/
 
 LOCAL	void	ready(
@@ -5648,6 +5392,7 @@ LOCAL	void	ready(
 	ps_task_t	*btp;			/* back task pointer	*/
 	ps_task_t	*ctp;			/* current task pointer	*/
 	ps_node_t	*np;			/* node pointer		*/
+	printf("In ready()\n");
 
 	SET_TASK_STATE(tp, TASK_READY);
 	tp->hp = NULL_HOST_PTR;
@@ -5655,49 +5400,60 @@ LOCAL	void	ready(
 	if(ts_flag)
 		ts_report(tp, "ready");
 	np = node_ptr(tp->node);
+	printf("Found node ptr\n");
 	if(np->discipline == CFS){
-		task=tid(tp);
+		printf("True\n");
+		task = dump.get_task_index(tp); //tid(tp);
 		enqueue_cfs_task(tp);
 	}
-       else{
-	task = np->rtrq;
-	if(np->discipline == FCFS) 
-		while(task != NULL_TASK) {
-			btp = ps_task_ptr(task);
-			task = btp->next;
-		}
 	else {
-		if(np->discipline == HOL || qxflag)
-			while(task != NULL_TASK && 
-		            (ctp = ps_task_ptr(task))->priority >= 
-			    tp->priority) {
-				btp = ctp;
-				task = ctp->next;
-			}	
-		else 
-			while(task != NULL_TASK &&
-			    (ctp = ps_task_ptr(task))->priority >
-			    tp->priority) {
-				btp = ctp;
-				task = ctp->next;
+		printf("False\n");
+		task = np->rtrq;
+		if(np->discipline == FCFS) {
+			printf("True\n");
+			while(task != NULL_TASK) {
+				if (true) break;
+				btp = ps_task_ptr(task);
+				task = btp->next;
 			}
-	}
+		}
+		else {
+			printf("False\n");
+			if(np->discipline == HOL || qxflag){
+				while(task != NULL_TASK &&
+				(ctp = ps_task_ptr(task))->priority >= tp->priority) {
+					btp = ctp;
+					if (btp == dummy_task_location){
+						break;
+					}
+					task = ctp->next;
 
-	if(task == np->rtrq) {
-		tp->next = np->rtrq;
-		np->rtrq = tid(tp);
+				}
+			}
+			else {
+				while(task != NULL_TASK &&
+				(ctp = ps_task_ptr(task))->priority > tp->priority) {
+					btp = ctp;
+					task = ctp->next;
+				}
+			}
+		}
+		if(task == np->rtrq) {
+			tp->next = np->rtrq;
+			np->rtrq = tid(tp);
+		}
+		else {
+			tp->next = btp->next;
+			btp->next = tid(tp);
+		}
 	}
-	else {
-		tp->next = btp->next;
-		btp->next = tid(tp);
-	}
-      }
-	if (np->cpu[0].scheduler != NULL_TASK 
+	printf("Before ps_send()\n");
+	if (np->cpu[0].scheduler != NULL_TASK
 	    && tp->priority <= MAX_PRIORITY
-	    && (ps_htp == DRIVER_PTR || ps_htp->priority <= MAX_PRIORITY 
-	    || ps_htp->priority == MAX_PRIORITY+2))
- 		ps_send(ps_std_port(np->cpu[0].scheduler), SN_READY, "", 
-		    tid(tp));
+	    && (ps_htp == DRIVER_PTR || ps_htp->priority <= MAX_PRIORITY
+	    || ps_htp->priority == MAX_PRIORITY+2)){};
+ 		//ps_send(ps_std_port(np->cpu[0].scheduler), SN_READY, "",
+		//    tid(tp));
 }
 
 /************************************************************************/
@@ -5715,7 +5471,7 @@ LOCAL	void	ready_cfs(
 	ps_cfs_rq_t	*rq;
 
 	SET_TASK_STATE(tp, TASK_READY);
-	
+
 	tp->sched_time = ps_now;/*??? */
 	if(ts_flag)
 		ts_report(tp, "ready");
@@ -5734,11 +5490,11 @@ LOCAL	void	ready_cfs(
 	/*np->host_rq[host].load++; */
 
 
-	if (np->cpu[0].scheduler != NULL_TASK 
+	if (np->cpu[0].scheduler != NULL_TASK
 	    && tp->priority <= MAX_PRIORITY
-	    && (ps_htp == DRIVER_PTR || ps_htp->priority <= MAX_PRIORITY 
+	    && (ps_htp == DRIVER_PTR || ps_htp->priority <= MAX_PRIORITY
 		|| ps_htp->priority == MAX_PRIORITY+2))
- 		ps_send(ps_std_port(np->cpu[0].scheduler), SN_READY, "", 
+ 		ps_send(ps_std_port(np->cpu[0].scheduler), SN_READY, "",
 			tid(tp));
 }
 
@@ -5755,7 +5511,7 @@ void	remove_event(
 	ps_event_t	*ep			/* event pointer	*/
 )
 {
-	
+
 	if(ep == NULL_EVENT_PTR)
 		return;
 	if(ep->prior == NULL_EVENT_PTR ||
@@ -5765,7 +5521,7 @@ void	remove_event(
 	   ep->next->prior != ep ||
 	   ep->prior->next != ep)
 		ps_abort("Attempting to remove a non calendar event");
-	
+
 	ep->prior->next = ep->next;
 	ep->next->prior = ep->prior;
 	ep->prior = event_fl;
@@ -5774,7 +5530,7 @@ void	remove_event(
 	print_event( "remove_event", ep );
 #endif
 }
-	
+
 /************************************************************************/
 
 LOCAL	void	sched(void)
@@ -5786,6 +5542,8 @@ LOCAL	void	sched(void)
 {
 	ps_event_t	*ep;			/* event pointer	*/
 	ps_task_t	*tp, *ctp;		/* task pointers	*/
+	printf("In sched\n");
+	return; // No scheduling for us.
 
 	ep = calendar;
 	ep = ep->next;
@@ -5810,19 +5568,46 @@ LOCAL	void	sched(void)
 		ctxsw(&tp->context, &d_context);
 	}
 }
-	
 
-	
-/************************************************************************/	
+
+
+/************************************************************************/
 /*		PARASOL Dynamic Table Functions				*/
 /************************************************************************/
 
+template <class T>
+long free_table_entry(ps_table_t<T>* input, long id)
+{
+	return input->remove_entry(id);
+}
+
+template <class T>
+long get_table_entry(ps_table_t<T>* input)
+{
+	return input->add_entry();
+}
+
+template <class T>
+long init_table(
+	ps_table_t<T>	*tabp,			/* table pointer	*/
+	long	tab_size,			/* initial table size	*/
+	long entry_size // This one is unused now, but I'll leave it since that's easier.
+)
+{
+	if(tab_size < 0 || entry_size < 0)
+		return(SYSERR);
+	tabp->init(tab_size);
+	return(OK);
+}
+
+// Never definded, just turns it off.
+#ifdef _UNDEFINED
 LOCAL	long	free_table_entry(
 
 /*	Frees a specified dynamic table entry for reuse.		*/
 
 	ps_table_t	*tabp,			/* table pointer	*/
-	long	id				/* table entry index	*/	
+	long	id				/* table entry index	*/
 )
 {
 	if(tabp->signature != TABLE)
@@ -5838,6 +5623,9 @@ LOCAL	long	free_table_entry(
 }
 
 /************************************************************************/
+
+
+
 
 LOCAL	long	get_table_entry(
 
@@ -5861,7 +5649,7 @@ LOCAL	long	get_table_entry(
 	if(tabp->used == tabp->tab_size) {
 		nbytes = tabp->tab_size * tabp->entry_size;
 		new_size = 2 * tabp->tab_size;
-		if(!(new_tab =  (char *) 
+		if(!(new_tab =  (char *)
 		    ((double *)malloc(2*nbytes+sizeof(double)))))
 			ps_abort("Insufficient memory");
 		memset(new_tab, '\0', 2*nbytes);
@@ -5885,6 +5673,7 @@ LOCAL	long	get_table_entry(
 	tabp->rover = (id + 1) % tabp->tab_size;
 	return(id);
 }
+
 
 /************************************************************************/
 
@@ -5917,7 +5706,7 @@ LOCAL	long	init_table(
 	} else { /* reuse existing table if possible  */
 	  if( tabp->tab_size != tab_size || tabp->entry_size != sizeof(double) + entry_size ) {
 	    if( tabp->tab != NULL ) free( tabp->tab );
-	    if(!(tabp->tab = (char *) ((double *)malloc(tab_size * (tabp->entry_size+sizeof(double))))))
+	    if(!(tabp->tab = (char *) ((double *)malloc(tab_size * (entry_size+sizeof(double))))))
 	      ps_abort("Insufficient memory");
 
 	    tabp->tab_size = tab_size;
@@ -5926,16 +5715,16 @@ LOCAL	long	init_table(
 	}
 
 	tabp->base = tabp->tab + sizeof(double);
-	memset(tabp->tab, '\0', tab_size * tabp->entry_size); 
+	memset(tabp->tab, '\0', tab_size * tabp->entry_size);
 	return(OK);
 }
-
+#endif
 
 /************************************************************************/
 /*		PARASOL Debugger Functions				*/
 /************************************************************************/
 
-LOCAL	void	debug(void)					
+LOCAL	void	debug(void)
 
 /* PARASOL debug interpreter						*/
 
@@ -5960,8 +5749,8 @@ LOCAL	void	debug(void)
 		case 'Q':			/* abort simulation	*/
 		case 'q':
 			ps_abort("PARASOL aborted by user");
-		
-		case 'B':			/* set time break polong	*/	
+
+		case 'B':			/* set time break polong	*/
 		case 'b':
 			fprintf(stderr, "\n\n---> Break Time: ");
 			scanf("%lf", &break_time);
@@ -5997,9 +5786,9 @@ LOCAL	void	debug(void)
 			break;
 
 		case '?':
-			fprintf(stderr, 
+			fprintf(stderr,
 		   "\n\n---> P A R A S O L  Debugger Commands\n");
-			fprintf(stderr, 
+			fprintf(stderr,
 		   "\nb - set time Break\nk - task state break ");
 			fprintf(stderr, "\nd - display breakpoints");
 			fprintf(stderr, "\ne - show future Events\ng - Go ");
@@ -6013,7 +5802,7 @@ LOCAL	void	debug(void)
 		case 's':
 			soft_report();
 			break;
-		
+
 		case 'T':			/* trace toggle		*/
 		case 't':
 			ts_flag = !ts_flag;
@@ -6021,8 +5810,8 @@ LOCAL	void	debug(void)
 				fprintf(stderr, "\n---> Trace ON\n");
 			else
 				fprintf(stderr, "\n---> Trace OFF\n");
-			break;			
-			
+			break;
+
 		default:			/* step out		*/
 			done = TRUE;
 			step_flag = TRUE;
@@ -6049,11 +5838,11 @@ LOCAL	void	display_breakpoints(void)
 		fprintf(stderr, "\n\nTask State Breakpoints");
  		fprintf(stderr, "\n ID |        Name          | Break on State");
 		fprintf(stderr, "\n---------------------------------------------");
-		for(i = 0; i < ps_task_tab.tab_size; i++) {
+		for(i = 0; i < ps_task_tab.get_tab_size(); i++) {
 			if((tp = ps_task_ptr(i))->state != TASK_FREE
 			    && tp->tbp != -2) {
 			    	const char * p2;
-				padstr(p1, tp->name, 20);
+				padstr(p1, tp->name.c_str(), 20);
 				if(tp->tbp == -1)
 					p2 = "ANYSTATE";
 				else
@@ -6067,7 +5856,7 @@ LOCAL	void	display_breakpoints(void)
 
 /************************************************************************/
 
-LOCAL	 void 	event_report(void)			
+LOCAL	 void 	event_report(void)
 
 /* Reports future calendar events 					*/
 
@@ -6082,10 +5871,10 @@ LOCAL	 void 	event_report(void)
 		"  End sync  ", "End compute ", "End quantum ", "End transmit",
 		" End sleep  ", "Receive t/o ", " End block  ", "", "", "",
 		" Link fail  ", "Link restore", "  Bus fail  ", "Bus restore ",
-		" Node fail  ", "Node restore", "", "", "", "", 
+		" Node fail  ", "Node restore", "", "", "", "",
 		" User event "
 	};
-	
+
 	ep = calendar[0].next;
 	if(ep != &calendar[1]) {
 		fprintf(stderr, "\n\n       F U T U R E   E V E N T S\n\n");
@@ -6093,7 +5882,7 @@ LOCAL	 void 	event_report(void)
 		fprintf(stderr,
 		    "-----------------------------------------------------\n");
 		while(ep != &calendar[1]) {
-			fprintf(stderr, "%12.4f   | %s |", ep->time, 
+			fprintf(stderr, "%12.4f   | %s |", ep->time,
 			    e_name[ep->type]);
 			switch(ep->type) {
 
@@ -6105,35 +5894,35 @@ LOCAL	 void 	event_report(void)
 			case END_BLOCK:
 				tp = ps_task_ptr((size_t)ep->gp);
 				fprintf(stderr, "%4ld | %s\n", (size_t)ep->gp,
-					tp->name);
+					tp->name.c_str());
 				break;
-			
+
 			case END_TRANS:
 				mp = (ps_mess_t *) ep->gp;
 				tp = ps_task_ptr(port_ptr(mp->port)->owner);
-				fprintf(stderr, "%4ld | %s\n", 
-				    port_ptr(mp->port)->owner, tp->name);
+				fprintf(stderr, "%4ld | %s\n",
+				    port_ptr(mp->port)->owner, tp->name.c_str());
 				break;
 
 			case LINK_FAILURE:
 			case LINK_REPAIR:
 				lp = (ps_link_t *) ep->gp;
 				fprintf(stderr, "%4ld | %s\n", lid(lp),
-				    lp->name);
+				    lp->name.c_str());
 				break;
 
 			case BUS_FAILURE:
 			case BUS_REPAIR:
 				bp = (ps_bus_t *) ep->gp;
 				fprintf(stderr, "%4ld | %s\n", bid(bp),
-				    bp->name);
+				    bp->name.c_str());
 				break;
 
 			case NODE_FAILURE:
 			case NODE_REPAIR:
 				np = (ps_node_t *) ep->gp;
 				fprintf(stderr, "%4ld | %s\n", nid(np),
-				    np->name);
+				    np->name.c_str());
 				break;
 
 			}
@@ -6148,7 +5937,7 @@ LOCAL	 void 	event_report(void)
 LOCAL 	void 	hard_report(void)
 
 /* Reports hardware status						*/
-
+// TODO: Everything here lol
 {
 	long	node;				/* node index		*/
 	ps_node_t	*np;			/* node pointer		*/
@@ -6162,25 +5951,25 @@ LOCAL 	void 	hard_report(void)
 	ps_link_t	*lp;			/* link pointer		*/
 
 	fprintf(stderr, "\n\n               H A R D W A R E   S T A T U S\n\n");
-	fprintf(stderr, 
+	fprintf(stderr,
 	"               Node                     ||     Tasks Queued\n");
-	fprintf(stderr, 
+	fprintf(stderr,
 	" ID |        Name          | Busy CPU's ||   ID |      Name\n");
 	fprintf(stderr,
 	"-------------------------------------------------------------------\n");
-	for(node = 0; node < ps_node_tab.used; node++) {
+	for(node = 0; node < ps_node_tab.get_used(); node++) {
 		np = node_ptr(node);
-		padstr(pstring, np->name, 20);
-		fprintf(stderr,"%3ld | %s |     %3ld    ||", node, 
+		padstr(pstring, np->name.c_str(), 20);
+		fprintf(stderr,"%3ld | %s |     %3ld    ||", node,
 		    pstring, np->ncpu - np->nfree);
 		if((task = np->rtrq) != NULL_TASK) {
 			while(task != NULL_TASK) {
 				if(task != np->rtrq)
 					fprintf(stderr,
 	"                                        ||");
-				padstr(pstring, (tp = ps_task_ptr(task))->name,
+				padstr(pstring, (tp = ps_task_ptr(task))->name.c_str(),
 				    20);
-				fprintf(stderr," %4ld | %s\n", task, 
+				fprintf(stderr," %4ld | %s\n", task,
 				    pstring);
 				task = tp->next;
 			}
@@ -6189,16 +5978,16 @@ LOCAL 	void 	hard_report(void)
 			fprintf(stderr, "      |\n");
 	}
 
-	if(ps_bus_tab.used > 0) {
-		fprintf(stderr, 
+	if(ps_bus_tab.get_used() > 0) {
+		fprintf(stderr,
 	"\n               Bus                       Messages Queued\n");
-		fprintf(stderr, 
+		fprintf(stderr,
 	" ID |        Name          | State || Sender | Port | Type\n");
 		fprintf(stderr,
 	"--------------------------------------------------------------\n");
-		for(bus = 0; bus < ps_bus_tab.used; bus++) {
+		for(bus = 0; bus < ps_bus_tab.get_used(); bus++) {
 			bp = bus_ptr(bus);
-			padstr(pstring, bp->name, 20);
+			padstr(pstring, bp->name.c_str(), 20);
 			fprintf(stderr, "%3ld | %s |", bus, pstring);
 				switch(bp->state) {
 			case BUS_IDLE:
@@ -6211,33 +6000,34 @@ LOCAL 	void 	hard_report(void)
 				fprintf(stderr, "  DOWN ");
 			}
 			fprintf(stderr, "||");
-			if((mp = bp->head)) {
+			/*
+			if((mp = bp->mq.front())) {
 				while(mp != NULL_MESS_PTR) {
 					if(mp != bp->head)
-						fprintf(stderr, 
+						fprintf(stderr,
 	"                                   ||");
-					fprintf(stderr, 
-					    "   %4ld |  %3ld | %ld\n", 
-					    mp->sender, mp->port, 
+					fprintf(stderr,
+					    "   %4ld |  %3ld | %ld\n",
+					    mp->sender, mp->port,
 					    mp->type);
 					mp = mp->next;
 				}
 			}
 			else
-				fprintf(stderr,"        |      |\n");
+				fprintf(stderr,"        |      |\n");*/
 		}
 	}
 
-	if(ps_link_tab.used > 0) {
-		fprintf(stderr, 
+	if(ps_link_tab.get_used() > 0) {
+		fprintf(stderr,
 	"               Link                      Messages Queued\n");
-		fprintf(stderr, 
+		fprintf(stderr,
 	" ID |        Name          | State || Sender | Port | Type\n");
 		fprintf(stderr,
 	"--------------------------------------------------------------\n");
-		for(link = 0; link < ps_link_tab.used; link++) {
+		for(link = 0; link < ps_link_tab.get_used(); link++) {
 			lp = link_ptr(link);
-			padstr(pstring, lp->name, 20);
+			padstr(pstring, lp->name.c_str(), 20);
 			fprintf(stderr, "%3ld | %s |", link, pstring);
 			switch(lp->state) {
 			case LINK_IDLE:
@@ -6250,20 +6040,21 @@ LOCAL 	void 	hard_report(void)
 				fprintf(stderr, "  DOWN ");
 			}
 			fprintf(stderr, "||");
+			/*
 			if((mp = lp->head)) {
 				while(mp != NULL_MESS_PTR) {
 					if(mp != lp->head)
-						fprintf(stderr, 
+						fprintf(stderr,
 	"                                   ||");
-					fprintf(stderr, 
-					    "   %4ld |  %3ld | %ld\n", 
-					    mp->sender, mp->port, 
+					fprintf(stderr,
+					    "   %4ld |  %3ld | %ld\n",
+					    mp->sender, mp->port,
 					    mp->type);
 					mp = mp->next;
 				}
 			}
 			else
-				fprintf(stderr,"        |      |\n");
+				fprintf(stderr,"        |      |\n");*/
 		}
 	}
 }
@@ -6279,7 +6070,7 @@ long	padstr(
 	long	n				/* string length	*/
 )
 {
-	static char	
+	static char
            blanks[]="                                                     ";
 
 	strncpy(s1, s2, n);
@@ -6304,16 +6095,16 @@ LOCAL 	void 	soft_report(void)
 	long	no_mess;			/* no message flag	*/
 
 	fprintf(stderr, "\n\n               S O F T W A R E   S T A T U S \n\n");
-	fprintf(stderr, 
+	fprintf(stderr,
 "                      Task                    ||Port|| Messages Queued\n");
-	fprintf(stderr, 
+	fprintf(stderr,
 " ID |        Name          | Node |   State   || ID || Sender | Type\n");
 	fprintf(stderr,
 "-------------------------------------------------------------------------\n");
-	for(task = 0; task < ps_task_tab.tab_size; task++) {
+	for(task = 0; task < ps_task_tab.get_tab_size(); task++) {
 		if((tp = ps_task_ptr(task))->state != TASK_FREE) {
-			padstr(pstring, tp->name, 20);
-			fprintf(stderr, "%3ld | %s |%4ld  |", task, pstring, 
+			padstr(pstring, tp->name.c_str(), 20);
+			fprintf(stderr, "%3ld | %s |%4ld  |", task, pstring,
 			    tp->node);
 			switch(tp->state) {
 			case TASK_READY:
@@ -6337,8 +6128,9 @@ LOCAL 	void 	soft_report(void)
 			port = tp->port_list;
 			sport = port;
 			no_mess = TRUE;
+			/*
 			while(port != NULL_PORT) {
-				if((pp = port_ptr(port))->nmess) {
+				if((pp = port_ptr(port))->mq.empty() == false) {
 					no_mess = FALSE;
 					if(port != sport)
 						fprintf(stderr,
@@ -6349,7 +6141,7 @@ LOCAL 	void 	soft_report(void)
 						if(mp != pp->first)
 							fprintf(stderr,
 	"    |                      |      |           ||    ||");
-						fprintf(stderr, "%5ld   | %ld\n", 
+						fprintf(stderr, "%5ld   | %ld\n",
 						    mp->sender, mp->type);
 						mp = mp->next;
 					}
@@ -6359,11 +6151,11 @@ LOCAL 	void 	soft_report(void)
 				port = pp->next;
 			}
 			if(no_mess)
-				fprintf(stderr, "    ||        |\n");
+				fprintf(stderr, "    ||        |\n");*/
 		}
 	}
 }
-	
+
 /************************************************************************/
 
 LOCAL	void	set_task_state(
@@ -6376,6 +6168,7 @@ LOCAL	void	set_task_state(
 	ps_task_state_t	state
 )
 {
+   printf("In set_task_state()\n");
 	if(tp->state == state)
 		return;
 	tp->state = state;
@@ -6403,7 +6196,7 @@ LOCAL	void	task_breakpoints(void)
 	fprintf(stderr, "\n---> Task id: ");
 	fgets(state, STATE_BUFSIZ, stdin);
 	sscanf(state, "%ld", &tid);
-	if (tid < 0 || tid > ps_task_tab.tab_size 
+	if (tid < 0 || tid > ps_task_tab.get_tab_size()
 	    || (tp = ps_task_ptr(tid))->state == TASK_FREE) {
 		fprintf(stderr, "\nInvalid Task ID");
 		return;
@@ -6448,7 +6241,7 @@ LOCAL	void	task_breakpoints(void)
 		fprintf(stderr, "\n---> <Return> (Clears Task breakpoint)");
  		return;
 	}
-	if(tp->tbp == -2) 
+	if(tp->tbp == -2)
 		ntask_bps++;
 	tp->tbp = i;
 }
@@ -6467,29 +6260,29 @@ void	ts_report(
 #if	!HAVE_SIGALTSTACK || _WIN32 || _WIN64
 	long headroom;
 	char string[TEMP_STR_SIZE];  /* is this long enough for any string encounterable? */
-	
+
 
        	if (w_flag && (ps_htp != DRIVER_PTR))
-		if ((headroom = (ps_headroom() - ps_trsct)) < 
+		if ((headroom = (ps_headroom() - ps_trsct)) <
 		    10*sizeof(double)*sp_delta) {  /* what value to use here ? */
-			sprintf(string, "ps_headroom reports %ld for task %ld", 
+			sprintf(string, "ps_headroom reports %ld for task %ld",
 			    headroom, ps_myself);
 			warning(string);
 		}
 #endif
-	
-	if (tp->code == reaper || tp->code == port_set_surrogate 
-	    || tp->code == shared_port_dispatcher 
+
+	if (tp->code == reaper || tp->code == port_set_surrogate
+	    || tp->code == shared_port_dispatcher
 	    || tp->code == block_stats_collector )
 		return;
-	if(strlen(tp->name))
-		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld (%s) %s.", 
-		    ps_now, tp->node, tid(tp), tp->name, sp);
+	if(tp->name.length())
+		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld (%s) %s.",
+		    ps_now, tp->node, tid(tp), tp->name.c_str(), sp);
 	else
 		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld %s.",
 		    ps_now, tp->node, tid(tp), sp);
 }
-		
+
 /************************************************************************/
 /*		 Angio Trace Support Functions				*/
 /************************************************************************/
@@ -6563,17 +6356,17 @@ LOCAL 	long	get_occurence_number (
 /* new_base_name is filled in with a pointer to the shared occurence 	*/
 /* name.								*/
 
-	const	char	*base_name, 
+	const	char	*base_name,
 	char 		**new_base_name
 )
 {
 	typedef struct name_entry_t {
 		char *name;
-		long occurence;	
+		long occurence;
 		struct name_entry_t *next;
 	} name_entry_t;
 
-	static name_entry_t	*list = NULL; 
+	static name_entry_t	*list = NULL;
 	name_entry_t 		*temp;
 	long			result;
 
@@ -6589,9 +6382,9 @@ LOCAL 	long	get_occurence_number (
 	}
 
 	if ((temp = (name_entry_t *)malloc (sizeof(name_entry_t))) == NULL
-	    || (temp->name = (char *)malloc(strlen(base_name)+1)) == NULL ) 
+	    || (temp->name = (char *)malloc(strlen(base_name)+1)) == NULL )
 		ps_abort("Insufficient Memory");
-	
+
 	*new_base_name = temp->name;
 	strcpy (temp->name, base_name);
 	temp->occurence = 0;
@@ -6642,22 +6435,22 @@ LOCAL	void	log_angio_event (
 	const	char	*event
 )
 {
-	if (!angio_flag) 
+	if (!angio_flag)
 		ps_abort("Angio tracing internal error");
 
 	if (!angio_output)
 		return;
 
-	if (tp->code == reaper || tp->code == port_set_surrogate 
+	if (tp->code == reaper || tp->code == port_set_surrogate
 	    || tp->code == shared_port_dispatcher)
 		return;
 
-	fprintf (angio_file, "\nW %s %ld %ld ! T %s %ld ! %g ! E %s", 
-	    dye->base_name, dye->occurence, dye->serialno, tp->name, tp->tsn, 
+	fprintf (angio_file, "\nW %s %ld %ld ! T %s %ld ! %g ! E %s",
+	    dye->base_name, dye->occurence, dye->serialno, tp->name.c_str(), tp->tsn,
 	    ps_now, event);
 }
 
-/************************************************************************/	
+/************************************************************************/
 /*		Glocal variable related SYSCALLS			*/
 /************************************************************************/
 
@@ -6682,16 +6475,16 @@ LOCAL	void	glocal_init_stuff (
 
 /*	Grow table if to accomodate env if necessary			*/
 
-	while(env >= ps_env_tab.tab_size) {
-		ps_env_tab.used = ps_env_tab.tab_size;
+	while(env >= ps_env_tab.get_tab_size()) {
+		//ps_env_tab.get_used() = ps_env_tab.get_tab_size();
 		get_table_entry(&ps_env_tab);
-		for(i = ps_env_tab.tab_size/2; i < ps_env_tab.tab_size; i++) {
+		for(i = ps_env_tab.get_tab_size()/2; i < ps_env_tab.get_tab_size(); i++) {
 			ep =  env_ptr(i);
 			ep->ntasks = 0;
 			ep->nsubscribers = 0;
 			ep->nallocated = 0;
 		}
-	} 
+	}
 
 /*	Initialize the variable table if necessary			*/
 
@@ -6743,16 +6536,16 @@ LOCAL	void	adjust_priority(
 	case TASK_BLOCKED:
 	case TASK_COMPUTING:
 	case TASK_SPINNING:
-		
-		if(np->discipline == PR) 
+
+		if(np->discipline == PR)
 			find_priority(np, tp->hp, priority);
 		break;
-	}								
+	}
  }
 
 /************************************************************************/
 
-LOCAL	long	ancestor(				
+LOCAL	long	ancestor(
 
 /* Tests if the caller is an ancestor of the given task.  Returns TRUE	*/
 /* if the simulation driver is the caller or if the caller is the given	*/
@@ -6806,7 +6599,7 @@ extern int	bad_call_helper(
 {
 	char	string[100];			/* warning message	*/
 
-	if(w_flag && (ps_htp->priority <= MAX_PRIORITY)) {
+	if(w_flag) {
 		sprintf(string, "%s: %s.", function, message);
 		warning(string);
 	}
@@ -6849,11 +6642,10 @@ LOCAL	void	free_mess(
 
 /* Free message envelope.						*/
 
-	ps_mess_t	*mp			/* message pointer	*/
+	long	mp			/* message index	*/
 )
 {
-	mp->next = next_mess;
-	next_mess = mp;
+	mess_pool.free_mess(mp);
 }
 
 /************************************************************************/
@@ -6864,7 +6656,7 @@ LOCAL void free_pair(
 
 	ps_tp_pair_t	*pp			/* tp pair pointer	*/
 )
-{	
+{
 	pp->next = tpflist;
 	tpflist = pp;
 }
@@ -6879,40 +6671,26 @@ LOCAL	long	get_dss(
 	long	t_flag
 )
 {
-	long	dss;								
+	long	dss;
 
 	dss = 15*sizeof(double)*sp_delta;
 	if (t_flag) {
-		ps_trsct = stack_corruption_tester (trace_rep);
+		ps_trsct = 1; //stack_corruption_tester (trace_rep); // Function was removed
 		dss += ps_trsct;
 	} else
-		dss += stack_corruption_tester (no_trace_rep);
+		dss += 1; //stack_corruption_tester (no_trace_rep);
 
  	return (dss - dss % sizeof(double));
 }
 
 /************************************************************************/
 
-LOCAL	ps_mess_t	*get_mess(void)
+LOCAL	long get_mess(void)
 
 /* Get message envelope							*/
 
 {
-	long	i;				/* loop index		*/
-	ps_mess_t	*mp, *nmp;		/* message pointers	*/
-
-	if(next_mess == NULL_MESS_PTR) {
-		if(!(mp = next_mess = (ps_mess_t *) malloc(100*sizeof(ps_mess_t))))
-			ps_abort("Insufficient memory");
-		for(i = 1; i < 100; i++) {
-			nmp = mp++;
-			nmp->next = mp;
-		}
-		mp->next = NULL_MESS_PTR;
-	}
-	mp = next_mess;
-	next_mess = next_mess->next;
-	return(mp);
+	return(mess_pool.get_mess());
 }
 
 /************************************************************************/
@@ -6928,7 +6706,7 @@ LOCAL 	ps_tp_pair_t *get_pair(void)
 		pp = tpflist;
 		tpflist = pp->next;
 	}
-	else 
+	else
 		if(!(pp = (ps_tp_pair_t *) malloc(sizeof(ps_tp_pair_t))))
 			ps_abort("Insufficient memory");
 	return(pp);
@@ -6986,7 +6764,7 @@ LOCAL	long 	lookup_port_set(
 	ps_tp_pair_t *pairp;
 	long port;
 	long port_set = NULL_PORT;
-	
+
 	port = ps_task_ptr(task)->port_list;
 	while (port_set == NULL_PORT && port != NULL_PORT) {
 		if (port_ptr(port)->state == PORT_SET) {
@@ -7011,7 +6789,7 @@ LOCAL	void	no_trace_rep(void)
 {
 	static char 	dummy[40];
 
-	sprintf(dummy, "****%g:%d-Initializing-%d:%d****", 1.234926, 15, 9987, 
+	sprintf(dummy, "****%g:%d-Initializing-%d:%d****", 1.234926, 15, 9987,
 	    3456);
 }
 
@@ -7058,20 +6836,21 @@ LOCAL	long	port_receive(
 	ps_port_t	*pp;			/* port pointer		*/
 	ps_node_t	*np;			/* node pointer		*/
 	ps_cpu_t	*hp;			/* host cpu pointer	*/
-	ps_mess_t	*mp, *op;		/* message pointers	*/
+	ps_mess_t	*mp;		/* message pointers	*/
+	long mess; // message index
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	long	skip;				/* skip count		*/
 	long	max_pri;
 	long	pri_skip;
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
 	if(pp->owner != ps_myself)
 		return(BAD_CALL("Caller is not owner of port"));
 
-	if(!pp->nmess && time_out < 0.0) {
+	if(pp->mq.empty() && time_out < 0.0) {
 		*typep = ACK_TIMEOUT;
 		if(ts_flag) {
 			sprintf(string, "times out on port %ld", port);
@@ -7079,17 +6858,17 @@ LOCAL	long	port_receive(
 		}
 		return(FALSE);
 	}
-	if(!pp->nmess && time_out != NEVER) 
-		ps_htp->rtoep = add_event(ps_now + time_out, END_RECEIVE, 
+	if(pp->mq.empty() && time_out != NEVER)
+		ps_htp->rtoep = add_event(ps_now + time_out, END_RECEIVE,
 		    (long *)ps_myself);
 
-	if(!pp->nmess) { 	/* begin waiting for message		*/	
+	if(pp->mq.empty()) { 	/* begin waiting for message		*/
 		if(ts_flag) {
-			sprintf(string, "receiving (blocked) on port %ld", 
+			sprintf(string, "receiving (blocked) on port %ld",
 		 	   port);
 			ts_report(ps_htp, string);
 		}
-		do {		/* do/while required as a waiting task 
+		do {		/* do/while required as a waiting task
 					might be suspended temporarily	*/
 			np = node_ptr(ps_htp->node);
 			hp = ps_htp->hp;
@@ -7107,75 +6886,82 @@ LOCAL	long	port_receive(
 			if((pp = port_ptr(port))->owner != ps_myself)
 				return(BAD_CALL("Caller is not owner of port"));
 
-		} while(!pp->nmess);
+		} while(pp->mq.empty());
 		remove_event(ps_htp->rtoep);
 		ps_htp->rtoep = NULL_EVENT_PTR;
-
 	}
 
 	switch(discipline) {
-	    case RAND:
-		skip = ps_choice(pp->nmess);
+	case RAND:
+		skip = ps_choice(pp->mq.size());
 		break;
-	    case LIFO:
-		skip = pp->nmess -1;
+	case LIFO:
+		skip = pp->mq.size() - 1;
 		break;
-	    case HOL:
+	case HOL:
 		max_pri = 0;	/* Search for highest priority message */
 		skip = 0;
-		for ( mp = pp->first, pri_skip = 0; mp; mp = mp->next, pri_skip++ ) {
-			if ( mp->pri > max_pri ) {
-				max_pri = mp->pri;
+		pri_skip = 0;
+		mp = mess_pool.get_mp(0);
+		for (auto iter = pp->mq.begin(); iter != pp->mq.end(); ++iter, ++pri_skip) {
+			if ( (mp + *iter)->pri > max_pri ) {
+				max_pri = (mp + *iter)->pri;
 				skip = pri_skip;
 			}
 		}
-	        break;
-		    
-	    case FIFO:
-	    default:
+		break;
+	case FIFO:
+	default:
 		skip = 0;
 		break;
 	}
-	op = mp = pp->first;
-	if(!skip) 
-		pp->first = mp->next;
-	else {
-		for(--skip; skip > 0; skip--) 
-			op = op->next;
-		mp = op->next;
-		op->next = mp->next;
-	}
-	if(pp->last == mp)
-		pp->last = op;	
-	if(!--(pp->nmess))
-		pp->last = NULL_MESS_PTR;
 
+	if(!skip){
+		mess = pp->mq.front();
+		pp->mq.pop_front();
+	}
+	else {
+		auto iter = pp->mq.begin();
+		for (long i = 0; i < skip; ++i)
+			++iter;
+		mess = *iter;
+		pp->mq.erase(iter);
+	}
+	mp = mess_pool.get_mp(mess);
 	*typep = mp->type;
 	*tsp = mp->ts;
-	*texth = mp->text;
+	if (mp->text.length()){
+		char* retText = new char[mp->text.length() + 1];
+		memcpy(retText, mp->text.c_str(), mp->text.length());
+		retText[mp->text.length()] = '\0';
+		*texth = retText;
+	}
+	else{
+		*texth = nullptr;
+	}
 	*app = mp->ack_port;
 	*opp = mp->org_port;
 	*mid = mp->mid;
 	if (angio_flag)
 		*did = mp->did;
-	free_mess(mp);
+	free_mess(mess);
 	if(ts_flag) {
 		if(mp->type == ACK_TIMEOUT)
 			sprintf(string, "times out on port %ld", port);
 		else if (port == ps_htp->blind_port)
 			sprintf(string, "receives message %ld on shared port %ld",
-			    *mid, *opp); 
+			    *mid, *opp);
 		else if (pp->state == PORT_SET)
-			sprintf(string, "receives message %ld on port %ld", 
+			sprintf(string, "receives message %ld on port %ld",
 			    *mid, *opp);
 		else
-			sprintf(string, "receives message %ld on port %ld", 
+			sprintf(string, "receives message %ld on port %ld",
 				*mid, port);
 		ts_report(ps_htp, string);
 	}
 	return ((mp->type == ACK_TIMEOUT) ? FALSE : OK);
 }
-		
+
 /************************************************************************/
 
 LOCAL 	long	port_send(
@@ -7190,40 +6976,36 @@ LOCAL 	long	port_send(
 	char	*text,				/* message text pointer	*/
 	long	ack_port,			/* acknowledge port	*/
 	long	oport,				/* original port	*/
-	long	mid,          			/* Unique message id	*/   
+	long	mid,          			/* Unique message id	*/
 	long	did				/* dye id		*/
 )
 {
 	ps_mess_t	*mp;			/* message pointer	*/
+	long mess;
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	ps_port_t	*pp;			/* port pointer		*/
 	ps_task_t	*tp;			/* task pointer		*/
 
-	if(port < 0 || port >= ps_port_tab.tab_size)
+	if(port < 0 || port >= ps_port_tab.get_tab_size())
 		return(BAD_PARAM("port"));
 	if((pp = port_ptr(port))->state == PORT_FREE)
 		return(BAD_PARAM("port"));
 
-	mp = get_mess();
-	if((pp = port_ptr(port))->nmess++) {
-		pp->last->next = mp;
-		pp->last = mp;
-	}
-	else 
-		pp->first = pp->last = mp;
+	mess = get_mess();
+	mp = mess_pool.get_mp(mess);
+	pp->mq.push_back(mess);
 
 	mp->sender = ps_myself;
 	mp->port = port;
 	mp->c_code = MAGIC;
 	mp->type = type;
 	mp->ts = ts;
-	mp->text = text;
+	mp->text = std::string(text);
 	mp->ack_port = ack_port;
 	mp->org_port = oport;
 	mp->mid = mid;
 	if (angio_flag)
 		mp->did = did;
-	mp->next = NULL_MESS_PTR;
 	if(ts_flag && ps_htp != DRIVER_PTR) {
 		if (pp->state == PORT_SHARED) {
 			sprintf(string, "sending message %ld to shared port %ld",
@@ -7266,7 +7048,7 @@ LOCAL	long	relative(
 	while(TRUE) {
 		if(tp == ttp)
 			return(TRUE);
-		if((tp->son != NULL_TASK) && 
+		if((tp->son != NULL_TASK) &&
 		    relative(ps_task_ptr(tp->son), ttp))
 			return(TRUE);
 		if(tp->sibling == NULL_TASK)
@@ -7307,14 +7089,14 @@ LOCAL	void 	release_locks(
 		else {
 			ctp = ps_task_ptr(lp->queue);
 			n = ps_choice(lp->count);
-			for(i = 0; i < n; i++) 
+			for(i = 0; i < n; i++)
 				ctp = ps_task_ptr(ctp->next);
 			lp->owner = tid(ctp);
 			dq_lock(ctp);
 			lp->next = ctp->lock_list;
 			ctp->lock_list = lock;
 			SET_TASK_STATE(ctp, TASK_BLOCKED);
-			ctp->tep = add_event(ps_now, END_BLOCK, 
+			ctp->tep = add_event(ps_now, END_BLOCK,
 			    (long *)lp->owner);
 			if(ts_flag) {
 				sprintf(string, "locking lock %ld", lock);
@@ -7344,7 +7126,7 @@ LOCAL 	void 	release_ports(
 			ps_release_port(port);	/**/
 		}
 		port = port_ptr(port)->next;
-	}	
+	}
 	tp->port_list = NULL_PORT;
 }
 
@@ -7375,32 +7157,32 @@ LOCAL	void	set_run_task(
 
 
 	if (np->sf & SF_PER_TASK_HOST) {
-		if (otask != NULL_TASK)	
+		if (otask != NULL_TASK)
 			/* WCS - 14 April 1998 - Added test for -1 (for port_set_surrogate) */
 			if (*(stat = ts_stat_ptr(hp->ts_tab,otask)) != -1)
 				ps_record_stat(*stat, 0.0);
 		if (task != NULL_TASK) {
-			while (task >= hp->ts_tab->tab_size) {
-				hp->ts_tab->used = hp->ts_tab->tab_size;
+			while (task >= hp->ts_tab->get_tab_size()) {
+				//hp->ts_tab->get_used() = hp->ts_tab->get_tab_size();
 				get_table_entry(hp->ts_tab);
-				for(i = hp->ts_tab->tab_size/2; 
-				    i < hp->ts_tab->tab_size; i++)
+				for(i = hp->ts_tab->get_tab_size()/2;
+				    i < hp->ts_tab->get_tab_size(); i++)
 					*ts_stat_ptr(hp->ts_tab, i) = -1;
 			}
 /* WCS - 6 May 1998 - Added test for port_set_surrogate.  Others ??? */
 			if (tp->code != port_set_surrogate) {
 	 			stat = ts_stat_ptr(hp->ts_tab, task);
 				if (*stat == -1) {
-					sprintf(string, "%s (cpu %ld) task %ld Utilization", 
-					   np->name, hid(np,hp), task);
+					sprintf(string, "%s (cpu %ld) task %ld Utilization",
+					   np->name.c_str(), hid(np,hp), task);
 					*stat = ps_open_stat(string, VARIABLE);
 
 /* 	Don't try this at home, we adjust the stat we created to take 	*/
 /*	into account the difference in time between creation of	the 	*/
 /*	node and the first time this task executes on the node.		*/
 
-					stat_ptr(*stat)->values.var.start 
-					    = stat_ptr(*stat)->values.var.old_time 
+					stat_ptr(*stat)->values.var.start
+					    = stat_ptr(*stat)->values.var.old_time
 					    = np->build_time;
 				}
 				ps_record_stat (*stat, 1.0);
@@ -7408,17 +7190,17 @@ LOCAL	void	set_run_task(
 		}
 	}
 	if (np->sf & SF_PER_TASK_NODE) {
-		if (otask != NULL_TASK)	
+		if (otask != NULL_TASK)
 			/* WCS - 14 April 1998 - Added test for -1 (for port_set_surrogate) */
 			if (*(stat = ts_stat_ptr(np->ts_tab,otask)) != -1)
 				ps_record_stat(*stat, 0.0);
 
 		if (task != NULL_TASK) {
-			while (task >= np->ts_tab->tab_size) {
-				np->ts_tab->used = np->ts_tab->tab_size;
+			while (task >= np->ts_tab->get_tab_size()) {
+				//np->ts_tab->get_used() = np->ts_tab->get_tab_size();
 				get_table_entry(np->ts_tab);
-				for(i = np->ts_tab->tab_size/2; 
-				    i < np->ts_tab->tab_size; i++)
+				for(i = np->ts_tab->get_tab_size()/2;
+				    i < np->ts_tab->get_tab_size(); i++)
 					*ts_stat_ptr(np->ts_tab, i) = -1;
 			}
 /* WCS - 6 May 1998 - Added test for port_set_surrogate.  Others ??? */
@@ -7427,15 +7209,15 @@ LOCAL	void	set_run_task(
 				if (*stat == -1) {
 					sprintf(string,
 					   "%s task %ld Utilization",
-					   np->name, task);
+					   np->name.c_str(), task);
 					*stat = ps_open_stat(string, VARIABLE);
 
 /* 	Don't try this at home, we adjust the stat we created to take 	*/
 /*	into account the difference in time between creation of	the 	*/
 /*	node and the first time this task executes on the node.		*/
 
-					stat_ptr(*stat)->values.var.start 
-					    = stat_ptr(*stat)->values.var.old_time 
+					stat_ptr(*stat)->values.var.start
+					    = stat_ptr(*stat)->values.var.old_time
 					    = np->build_time;
 				}
 				ps_record_stat (*stat, 1.0);
@@ -7446,11 +7228,11 @@ LOCAL	void	set_run_task(
 	/* collect  stat for groups */
 	if( (task!=NULL_TASK) && (tp->group_id >=0)){
 		gp=group_ptr(tp->group_id);
-		while (task >= gp->ts_tab->tab_size) {
-			gp->ts_tab->used = gp->ts_tab->tab_size;
+		while (task >= gp->ts_tab->get_tab_size()) {
+			//gp->ts_tab->get_used() = gp->ts_tab->get_tab_size();
 			get_table_entry(gp->ts_tab);
-			for(i = gp->ts_tab->tab_size/2; 
-			    i < gp->ts_tab->tab_size; i++)
+			for(i = gp->ts_tab->get_tab_size()/2;
+			    i < gp->ts_tab->get_tab_size(); i++)
 				*ts_stat_ptr(gp->ts_tab, i) = -1;
 		}
 		if (tp->code != port_set_surrogate) {
@@ -7465,8 +7247,8 @@ LOCAL	void	set_run_task(
 /*	into account the difference in time between creation of	the 	*/
 /*	node and the first time this task executes on the node.		*/
 
-					stat_ptr(*stat)->values.var.start 
-					    = stat_ptr(*stat)->values.var.old_time 
+					stat_ptr(*stat)->values.var.start
+					    = stat_ptr(*stat)->values.var.old_time
 					    = np->build_time;
 				}
 				ps_record_stat (*stat, 1.0);
@@ -7499,10 +7281,10 @@ LOCAL	long	sp_tester(
 	long	istop;				/* loop index stopper	*/
 	long	*jbp[3];			/* jmp_buf ptr array	*/
 
-	for(i = 0; i < 3; i++) 
+	for(i = 0; i < 3; i++)
 		jbp[i] = (long *) &sp_jb[i];
 	istop = sizeof(jmp_buf)/sizeof(long);
-	
+
 	sp_winder(2);
 
 	if(sp_yadd[2] > sp_yadd[1])
@@ -7510,7 +7292,7 @@ LOCAL	long	sp_tester(
 	else
 		*sp_dirp = 1;
 	*sp_deltap = (sp_yadd[1] - sp_yadd[2])*(*sp_dirp);
-	for(i = 0; i < istop; i++, jbp[0]++, jbp[1]++, jbp[2]++) 
+	for(i = 0; i < istop; i++, jbp[0]++, jbp[1]++, jbp[2]++)
 		if(((*jbp[2]-*jbp[1])==(*jbp[1]-*jbp[0]))
 		    &&	((*jbp[2]-*jbp[1])*(*sp_dirp) < 0)
 		    &&	((*jbp[1]-sp_yadd[1])*(*sp_dirp) > 0))
@@ -7551,7 +7333,7 @@ LOCAL	void	sp_winder(
 LOCAL	long sp_winder()
 {
     static char *addr = 0;
-    auto char dummy;
+	char dummy;
     if (addr == 0) {
 	addr = &dummy;
 	return sp_winder();
@@ -7568,11 +7350,11 @@ LOCAL	int	stat_compare(
 /* This is a callback function that is passed in to quicksort for 	*/
 /* sorting the statistics in alphabetical order by name.		*/
 
-	ps_stat_t 	*s1, 
+	ps_stat_t 	*s1,
 	ps_stat_t 	*s2
 )
 {
-	return strcmp(s1->name, s2->name);
+	return s1->name.compare(s2->name);
 }
 
 /************************************************************************/
@@ -7585,10 +7367,10 @@ void	test_all_stacks(void)
 
 {
 	long		task;			/* task id		*/
- 
+
 	printf ("\nTesting stacks, this may take a while...");
 
-	for (task = 0; task < ps_task_tab.tab_size; task++)
+	for (task = 0; task < ps_task_tab.get_tab_size(); task++)
 		if (ps_task_ptr(task)->state != TASK_FREE)
 			test_stack(task);
 
@@ -7636,9 +7418,9 @@ LOCAL	void	test_stack(
 LOCAL	void	trace_rep(void)
 
 /* This is representative of the PARASOL tracing function ts_report	*/
- 
+
 {
-	fprintf(stderr, "****%g:%d-Initializing-%d:%d****", 1.234926, 15, 9987, 
+	fprintf(stderr, "****%g:%d-Initializing-%d:%d****", 1.234926, 15, 9987,
 	    3456);
 }
 
@@ -7796,7 +7578,7 @@ LOCAL	void	wrapper(
 
 LOCAL struct rb_node * init_rb_node(){
 	struct rb_node *n;
-	if(!(n=(rb_node *)malloc(sizeof(rb_node)))) 
+	if(!(n=(rb_node *)malloc(sizeof(rb_node))))
 		ps_abort("Insufficient Memory");
 
 	n->rb_parent=NIL;
@@ -7813,9 +7595,9 @@ LOCAL	void  init_cfs_rq(ps_cfs_rq_t * rq,long node,double sched_time,sched_info 
 {
 	rq->root=NIL;
 	rq->leftmost=NIL;
-	rq->node=node;				
-	rq->nready=0;				
-	rq->curr=NULL_SCHED_PTR;			
+	rq->node=node;
+	rq->nready=0;
+	rq->curr=NULL_SCHED_PTR;
 	rq->si=si;
 	/* time parameters */
 	rq->fair=0.0;				/* fair key*/
@@ -7829,9 +7611,9 @@ LOCAL void assign_cfs_rq(ps_cfs_rq_t * rq1,ps_cfs_rq_t * rq2){
 
 	rq1->root=rq2->root;
 	rq1->leftmost=rq2->leftmost;
-	rq1->node=rq2->node;				
-	rq1->nready=rq2->nready;				
-	rq1->curr=rq2->curr;			
+	rq1->node=rq2->node;
+	rq1->nready=rq2->nready;
+	rq1->curr=rq2->curr;
 	rq1->si=rq2->si;
 	/* time parameters */
 	rq1->fair=rq2->fair;				/* fair key*/
@@ -7848,8 +7630,8 @@ LOCAL void assign_cfs_rq(ps_cfs_rq_t * rq1,ps_cfs_rq_t * rq2){
    the result of left rotation:
    node y has two children: left is x and right is C.
    node x has two children: left is A and right is B.
-   
-            
+
+
 		  Y   -----right_rotate---->   X
 		/   \                        /   \
 	       X     C  <----left_rotate--- A     Y
@@ -7860,7 +7642,7 @@ LOCAL void assign_cfs_rq(ps_cfs_rq_t * rq1,ps_cfs_rq_t * rq2){
 
 LOCAL	void  rotate_left( struct ps_cfs_rq_t * rq,struct rb_node * x ) {
 	rb_node * y;
-	
+
 	y = x->rb_right;/*y is right child of x*/
 
 	/*  y's left sub-tree become x's right sub-tree */
@@ -7873,7 +7655,7 @@ LOCAL	void  rotate_left( struct ps_cfs_rq_t * rq,struct rb_node * x ) {
 	/* if x is at the root */
 	if ( x->rb_parent == NIL ) rq->root = y;
 	else{
-    
+
 		if ( x == (x->rb_parent)->rb_left )
 			/* x is on the left child */
 			x->rb_parent->rb_left = y;
@@ -7894,7 +7676,7 @@ LOCAL	void  rotate_left( struct ps_cfs_rq_t * rq,struct rb_node * x ) {
 LOCAL	void rotate_right( struct ps_cfs_rq_t *rq, struct rb_node * y ) {
 	rb_node * x;
 
-	
+
 	x = y->rb_left;/* x is left child of y */
 
 	/*  x's right sub-tree become y's left sub-tree */
@@ -7940,39 +7722,39 @@ LOCAL	void insert_rb_color(  struct ps_cfs_rq_t *rq,struct rb_node * n){
 		if (n->rb_parent == n->rb_parent->rb_parent->rb_left) {
 			rb_node *y = n->rb_parent->rb_parent->rb_right;
 			if (y->color == RB_RED) {
- 
+
 				/* uncle is RED */
 				n->rb_parent->color = RB_BLACK;
 				y->color = RB_BLACK;
 				n->rb_parent->rb_parent->color = RB_RED;
 				n = n->rb_parent->rb_parent;
 			} else {
- 
+
 				/* uncle is RB_BLACK */
 				if (n == n->rb_parent->rb_right) {
 					/* make x a left child */
 					n = n->rb_parent;
 					rotate_left(rq,n);
 				}
- 
+
 				/* recolor and rotate */
 				n->rb_parent->color = RB_BLACK;
 				n->rb_parent->rb_parent->color = RB_RED;
 				rotate_right(rq,n->rb_parent->rb_parent);
 			}
 		} else {
- 
+
 			/* mirror image of above code */
 			rb_node *y = n->rb_parent->rb_parent->rb_left;
 			if (y->color == RB_RED) {
- 
+
 				/* uncle is RED */
 				n->rb_parent->color = RB_BLACK;
 				y->color = RB_BLACK;
 				n->rb_parent->rb_parent->color = RB_RED;
 				n = n->rb_parent->rb_parent;
 			} else {
- 
+
 				/* uncle is BLACK */
 				if (n == n->rb_parent->rb_left) {
 					n = n->rb_parent;
@@ -8001,7 +7783,7 @@ LOCAL	struct rb_node * insert_rb_node( struct ps_cfs_rq_t *rq,double key){
 	n->key=key;
 	if (rq->root==NIL)
 		rq->root=n;
-		
+
 	else{
 		struct rb_node *p=rq->root;
 		while(p!=NIL){
@@ -8016,10 +7798,10 @@ LOCAL	struct rb_node * insert_rb_node( struct ps_cfs_rq_t *rq,double key){
 		n->rb_parent=parent;
 		if (parent->key>key)
 			parent->rb_left=n;
-		else 
+		else
 			parent->rb_right=n;
 	}
-	if(leftmost) 
+	if(leftmost)
 		rq->leftmost=n;
 
 	insert_rb_color(  rq, n);
@@ -8032,11 +7814,11 @@ LOCAL	struct rb_node * insert_rb_node( struct ps_cfs_rq_t *rq,double key){
 
 /* maintain Red-Black tree balance after deleting node x */
 
-	ps_cfs_rq_t 	* rq, 
+	ps_cfs_rq_t 	* rq,
 	rb_node   	* x
-) 
+)
 {
- 
+
 	while (x != rq->root && x->color == RB_BLACK) {
 		if (x == x->rb_parent->rb_left) {
 			rb_node *w = x->rb_parent->rb_right;
@@ -8095,7 +7877,7 @@ LOCAL	struct rb_node * insert_rb_node( struct ps_cfs_rq_t *rq,double key){
 /*  delete node  from cfs-rq  */
 LOCAL	void delete_rb_node(struct ps_cfs_rq_t *rq,rb_node *n) {
 	rb_node *x, *y;
-	long leftmost=0; 
+	long leftmost=0;
 
 	if (!n || n == NIL) return;
 
@@ -8104,7 +7886,7 @@ LOCAL	void delete_rb_node(struct ps_cfs_rq_t *rq,rb_node *n) {
 
 	}
 	/*rq->leftmost =successor(n); */
- 
+
 	if (n->rb_left == NIL || n->rb_right == NIL) {
 		/* y has a NIL node as a child */
 		y = n;
@@ -8113,13 +7895,13 @@ LOCAL	void delete_rb_node(struct ps_cfs_rq_t *rq,rb_node *n) {
 		y = n->rb_right;
 		while (y->rb_left != NIL) y = y->rb_left;
 	}
- 
+
 	/* x is y's only child */
 	if (y->rb_left != NIL)
 		x = y->rb_left;
 	else
 		x = y->rb_right;
- 
+
 	/* remove y from the parent chain */
 	x->rb_parent = y->rb_parent;
 	if (y->rb_parent!=NIL)
@@ -8129,14 +7911,14 @@ LOCAL	void delete_rb_node(struct ps_cfs_rq_t *rq,rb_node *n) {
 			y->rb_parent->rb_right = x;
 	else
 		rq->root = x;
- 
+
 	/*if (y != n) n->key = y->key; */
 	if (y != n)
 		rb_set_data(n,y);
- 
+
 	if (y->color == RB_BLACK)
 		delete_rb_color (rq,x);
- 
+
 	free (y);
 
 
@@ -8149,11 +7931,11 @@ LOCAL	void delete_rb_node(struct ps_cfs_rq_t *rq,rb_node *n) {
 	}
 
 }
- 
+
  /************************************************************************/
 
 LOCAL	 rb_node *find_rb_node(struct ps_cfs_rq_t *rq, double key) {
- 
+
 	rb_node * n = rq->root;
 	while(n != NIL)
 		if(key== n->key)
@@ -8191,7 +7973,7 @@ void print_rb_tree(struct rb_node * n){
 
 /************************************************************************/
 
-LOCAL struct rb_node *successor(struct rb_node *n) 
+LOCAL struct rb_node *successor(struct rb_node *n)
 {
 
 	rb_node * y ;
@@ -8208,7 +7990,7 @@ LOCAL struct rb_node *successor(struct rb_node *n)
 			return y;
 		if ((y=y->rb_parent)!=NIL)
 			return y;
-	 
+
 	}
 	return NIL;
 }
@@ -8256,13 +8038,13 @@ LOCAL sched_info * find_next_si(sched_info *si) {
 	if (si )
 		return successor(si->rbnode)->si;
 	return NULL_SCHED_PTR;
-	
+
 }
 
 /************************************************************************/
 
 LOCAL 	long 	find_next_task(ps_task_t *tp) {
-	
+
 	struct sched_info *si, *psi;
 	if(tp){
 		si=tp->si;
@@ -8272,10 +8054,10 @@ LOCAL 	long 	find_next_task(ps_task_t *tp) {
 		else
 			if(si->parent){
 				psi=find_next_si(si->parent);
-				if (!psi)	
+				if (!psi)
 					return NULL_TASK;
 				si=find_fair_si(psi->own_rq);
-					
+
 				if(si)
 					return si->task;
 			}
@@ -8369,7 +8151,7 @@ void dq_cfs_task(ps_task_t * tp){
 	if((si=tp->si)->parent){
 		si->rq->load--;
 		si=si->parent;
-	
+
 	}
 	si->rq->load--;
 }
@@ -8386,7 +8168,7 @@ SYSCALL check_fair(ps_task_t *run_tp,ps_task_t *ready_tp){
 		return (FALSE);
 	else
 		return(TRUE);
-		
+
 }
 
 /************************************************************************/
@@ -8472,12 +8254,12 @@ void print_si(sched_info *si){
 	printf("si->fair=%f   ",si->fair);
 /*printf("si->sleep_time =%f   \n",si->sleep_time); */
 
-	
+
 }
 
 void print_rq( ps_cfs_rq_t *rq){
 	printf("rq parameters are:\n");
-	printf("rq address is %lx\n",(long)rq);
+	printf("rq address is %p\n",rq);
 	printf(" fair of rq =%f, nready =%ld \n",rq->fair,rq->nready);
 	printf("rq->exec_time =%f,rq->sched_time =%f \n ", rq->exec_time,rq->sched_time);
 }
@@ -8555,8 +8337,8 @@ LOCAL void init_sched_info(
 	double weight
 )
 {
-	si->on_rq  = 0; 
-	si->task  = task; 
+	si->on_rq  = 0;
+	si->task  = task;
 	si->rbnode = NIL;
 	si->own_rq  = own_rq;
 	si->rq = rq;
@@ -8564,7 +8346,7 @@ LOCAL void init_sched_info(
 	si->fair = 0.0;
 	si->key = 0;
 	si->q = node_ptr(ps_task_ptr(task)->node)->quantum;
-	si->exec_time = 0; 
+	si->exec_time = 0;
 	si->sched_time = 0;/*???? */
 	si->sleep_time = 0;
 	si->weight = weight;
@@ -8600,7 +8382,7 @@ LOCAL void cooling_cfs_task(ps_task_t *tp){
 	if(si->parent)
 		si->parent->rq->curr=NULL_SCHED_PTR;
 }
-			
+
 LOCAL long find_min_load_host(
 /* find a host with a min load */
 
@@ -8672,7 +8454,7 @@ void cap_handler(ps_task_t *tp){
 			sprintf (string, "wDelay %g", delta);
 			ps_log_user_event (string);
 		}
-	
+
 		ctp->qep = NULL_EVENT_PTR;
 		if(ctp->tep != NULL_EVENT_PTR) {
 			ctp->rct = ctp->tep->time - ps_now;
@@ -8681,9 +8463,9 @@ void cap_handler(ps_task_t *tp){
 		}
 		ctp->tep = add_event(ps_now+delta, END_SLEEP, (long*)si->task);
 	}
-	
+
 	rq->curr=NULL_SCHED_PTR;
-	rq->load=0;	
+	rq->load=0;
 	dq_cfs_si(group_si);
 
 	/* cooling the cfs task */
@@ -8712,11 +8494,11 @@ static void 	print_event(
 		"  End sync  ", "End compute ", "End quantum ", "End transmit",
 		" End sleep  ", "Receive t/o ", " End block  ", "", "", "",
 		" Link fail  ", "Link restore", "  Bus fail  ", "Bus restore ",
-		" Node fail  ", "Node restore", "", "", "", "", 
+		" Node fail  ", "Node restore", "", "", "", "",
 		" User event "
 	};
-	
-	fprintf(stderr, "\n%-12s | %12.4f   | %s |", name, ep->time, 
+
+	fprintf(stderr, "\n%-12s | %12.4f   | %s |", name, ep->time,
 	    e_name[ep->type]);
 	switch(ep->type) {
 
@@ -8728,14 +8510,14 @@ static void 	print_event(
 	case END_BLOCK:
 		tp = ps_task_ptr((size_t)ep->gp);
 		fprintf(stderr, "%4ld | %s", (size_t)ep->gp,
-			tp->name);
+			tp->name.c_str());
 		break;
-	
+
 	case END_TRANS:
 		mp = (ps_mess_t *) ep->gp;
 		tp = ps_task_ptr(port_ptr(mp->port)->owner);
-		fprintf(stderr, "%4ld | %s", 
-		    port_ptr(mp->port)->owner, tp->name);
+		fprintf(stderr, "%4ld | %s",
+		    port_ptr(mp->port)->owner, tp->name.c_str());
 		break;
 
 	case LINK_FAILURE:

@@ -147,7 +147,7 @@ Task::create()
      * processor has been allocated (eg, processor 0).  In this case,
      * tasks compute by "sleeping".
      */
-
+   printf("Setting compute function\n");
     _compute_func = (!processor() || processor()->is_infinite()) ? ps_sleep : ps_compute;
 
     /* JOIN Stuff -- All entries are free. */
@@ -163,9 +163,11 @@ Task::create()
     }
 
     /* Compute PDF for all activities for each task. */
-
+      printf("Creating Task instance\n");
     create_instance();
+    printf("Initialization\n");
     initialize();
+    printf("Finished Task instance\n");
 
     /* Create "links" where necessary. */
 
@@ -182,10 +184,11 @@ Task::create()
 Task&
 Task::initialize()
 {
+   FUNC_NAME_OUT
     for_each( _activity.begin(), _activity.end(), Exec<Activity>( &Activity::initialize ) );
     for_each( _entry.begin(), _entry.end(), Exec<Entry>( &Entry::initialize ) );
     for_each( _forks.begin(), _forks.end(), Exec<AndForkActivityList>( &AndForkActivityList::initialize ) );
-
+      printf("Finished child initialization\n");
     /*
      * Allocate statistics for joins.  We do it here because we
      * don't know how many joins we have when we allocate the task
@@ -200,6 +203,7 @@ Task::initialize()
 	(*lp)->r_join_sqr.init( SAMPLE, "Join delay squared %-11.11s %-11.11s ", src->name(), dst->name() );
     }
 
+    printf("Finished joins\n");
     /* statistics */
     _active = 0;		/* Reset counts */
     _hold_active = 0;
@@ -724,12 +728,14 @@ Task::derive_utilization() const
 Reference_Task::Reference_Task( const Task::Type type, LQIO::DOM::Task* domTask, Processor * aProc, Group * aGroup )
     : Task( type, domTask, aProc, aGroup ), _think_time(0.0), _task_list()
 {
+   FUNC_NAME_OUT
 }
 
 
 void
 Reference_Task::create_instance()
 {
+   FUNC_NAME_OUT
     if ( n_entries() != 1 ) {
 	solution_error( LQIO::WRN_TOO_MANY_ENTRIES_FOR_REF_TASK, name() );
     }
@@ -738,6 +744,7 @@ Reference_Task::create_instance()
     }
     _task_list.clear();
     for ( unsigned i = 0; i < multiplicity(); ++i ) {
+      printf("i equals %d\n", i);
 	_task_list.push_back( new srn_client( this, name() ) );
     }
 }
@@ -775,6 +782,7 @@ Server_Task::Server_Task( const Task::Type type, LQIO::DOM::Task* domTask, Proce
 int
 Server_Task::std_port() const
 {
+   FUNC_NAME_OUT;
     return ps_std_port(_task->task_id());
 }
 
@@ -794,6 +802,7 @@ Server_Task::set_synchronization_server()
 void
 Server_Task::create_instance()
 {
+   FUNC_NAME_OUT
     if ( is_infinite() ) {
 	_task = new srn_multiserver( this, name(), ~0 );
 	_worker_port = ps_allocate_port( name(), _task->task_id() );
@@ -813,6 +822,7 @@ Server_Task::create_instance()
 bool
 Server_Task::start()
 {
+   FUNC_NAME_OUT;
     return ps_resume( _task->task_id() ) == OK;
 }
 
@@ -854,6 +864,7 @@ Semaphore_Task::create()
 void
 Semaphore_Task::create_instance()
 {
+   FUNC_NAME_OUT
     if ( n_entries() != N_SEMAPHORE_ENTRIES ) {
 	LQIO::solution_error( LQIO::ERR_ENTRY_COUNT_FOR_TASK, name(), n_entries(), N_SEMAPHORE_ENTRIES );
     }
@@ -974,6 +985,7 @@ ReadWriteLock_Task::ReadWriteLock_Task( const Task::Type type, LQIO::DOM::Task* 
 void
 ReadWriteLock_Task::create_instance()
 {
+   FUNC_NAME_OUT
     if ( n_entries() != N_RWLOCK_ENTRIES ) {
 	LQIO::solution_error( LQIO::ERR_ENTRY_COUNT_FOR_TASK, name(), n_entries(), N_RWLOCK_ENTRIES );
     }
@@ -1217,6 +1229,7 @@ Pseudo_Task::insertDOMResults()
 void
 Pseudo_Task::create_instance()
 {
+   FUNC_NAME_OUT
     if ( type() != Task::Type::OPEN_ARRIVAL_SOURCE ) return;
 
     _task = new srn_open_arrivals( this, name() );	/* Create a fake task.			*/

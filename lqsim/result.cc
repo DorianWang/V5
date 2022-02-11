@@ -67,13 +67,14 @@ result_t::conf95( const unsigned n )
 
 double
 result_t::conf99( const unsigned n )
-{	
+{
     return conf_value( 1, n );
 }
 
 void
 result_t::init( int type, const char * format, ... )
 {
+   //FUNC_NAME_OUT;
     va_list args;
     char buf[128];
 
@@ -91,7 +92,7 @@ result_t::init( int type, const char * format, ... )
 
 
 void
-result_t::init( const long stat_id ) 
+result_t::init( const long stat_id )
 {
     raw = stat_id;		/* We already have a stat.  just set it up. */
     clear_results();
@@ -118,7 +119,8 @@ result_t::clear_results ()
 void
 result_t::reset()
 {
-    ps_reset_stat( raw );	
+   //FUNC_NAME_OUT;
+    ps_reset_stat( raw );
 }
 
 
@@ -146,7 +148,7 @@ result_t::accumulate()
     _sum_sqr   += square( value );
     _count_sqr += square( count );
 
-    ps_reset_stat( raw );	
+    ps_reset_stat( raw );
 
     return value;		/* For variance. */
 }
@@ -225,7 +227,7 @@ result_t::accumulate_utilization( const result_t& r_cycle, const double service_
     _count     += 1;
     _n         += 1;
     _count_sqr += 1;
-    
+
     ps_reset_stat( raw );
 }
 

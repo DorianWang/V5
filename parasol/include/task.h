@@ -41,7 +41,10 @@
 #ifndef __PORT_H
 #include <port.h>
 #endif //__PORT_H
-                                               
+
+#include "test_storage.h"
+extern TestStorage dump;
+
 
 //=======================================================================
 // class:	PS_AbstractTask
@@ -67,7 +70,7 @@ protected:
 	SYSCALL Headroom()
 	    { return (ps_myself == id()) ? ps_headroom() : SYSERR; };
 	SYSCALL PassPort(const PS_Port& port, const PS_AbstractTask& task)
-	    { return (ps_owner(port.id()) == id()) 
+	    { return (ps_owner(port.id()) == id())
 	    ? ps_pass_port(port.id(), task.id()) : SYSERR; };
 
 	virtual void code( void * ) = 0;
@@ -92,7 +95,7 @@ public:
 	    { return ps_awaken(id()); };
 	SYSCALL AdjustPriority(long priority)
 	    { return ps_adjust_priority(id(), priority); };
-	SYSCALL Migrate(const PS_AbstractNode& node, long cpu) 
+	SYSCALL Migrate(const PS_AbstractNode& node, long cpu)
 	    { return ps_migrate(id(), node.id(), cpu); };
 };
 
@@ -117,7 +120,7 @@ protected:
 // description:	The base class from which system tasks (such as genesis)
 //		inherit.
 //=======================================================================
-class PS_SystemTask : public PS_AbstractTask {	
+class PS_SystemTask : public PS_AbstractTask {
 protected:
 	PS_SystemTask() {};	// Do nothing, real work gets done later
 	PS_SystemTask(long tid) : PS_AbstractTask(tid) {};

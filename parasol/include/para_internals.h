@@ -59,20 +59,17 @@
 /*		 15/06/99 (WCS) Main stuff put in para_main		*/
 /*									*/
 /************************************************************************/
- 
+
 #ifndef	_PARA_INTERNALS
 #define	_PARA_INTERNALS
 
-#include	<parasol.h>
+#include	"parasol.h"
 
 
 /************************************************************************/
 /*                 P A R A S O L   P R O T O T Y P E S			*/
 /************************************************************************/
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
 
 /* does para_main belong here in this fashion? */
 
@@ -81,12 +78,12 @@ extern void para_own_block_stats_outputer();
 
 extern
 double	blocked_stat_outputer(
-	
+
 /* Output specified statistic.	*/
-	
+
 	long stat				/* statistic identifier */
 );
-		
+
 /************************************************************************/
 
 extern
@@ -132,7 +129,7 @@ void	bus_repair_handler(
 );
 
 
-		
+
 /************************************************************************/
 
 extern
@@ -220,8 +217,6 @@ void mctx_create( mctx_t *mctx, void (*sf_addr)(void *), void *sf_arg, void *sk_
 
 
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif /* __cplusplus */
+
 
 #endif	/* _PARA_INTERNALS */

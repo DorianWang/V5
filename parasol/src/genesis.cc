@@ -39,7 +39,7 @@ PS_Ether	PS_ether;
 
 //=======================================================================
 // function:	PS_GenesisTask::PS_GenesisTask()
-// description:	PS_GenesisTask constructor, ensures that there is only ever  
+// description:	PS_GenesisTask constructor, ensures that there is only ever
 //		one instance.
 //=======================================================================
 PS_GenesisTask::PS_GenesisTask(long tid) : PS_SystemTask(tid)
@@ -48,10 +48,19 @@ PS_GenesisTask::PS_GenesisTask(long tid) : PS_SystemTask(tid)
 		Abort("Attempt to create a second instance of PS_GenesisTask");
 	init = TRUE;
 }
- 
+
+ #ifdef STANDALONE_TESTING
+ void PS_GenesisTask::code(void*)
+ {
+   return;
+ }
+
+ #endif // STANDALONE_TESTING
+
+
 //=======================================================================
 // function:	PS_ParasolNode::PS_ParasolNode()
-// description:	PS_ParasolNode constructor, ensures that there is only ever  
+// description:	PS_ParasolNode constructor, ensures that there is only ever
 //		one instance.
 //=======================================================================
 PS_ParasolNode::PS_ParasolNode() : PS_SystemNode(0)
@@ -93,4 +102,4 @@ void ps_genesis(void *)
 	PS_genesis_task = PS_GenesisTask(ps_myself);	// Setup genesis Task
  	PS_genesis_task.code( 0 );				// Call user code
 	ps_suspend(ps_myself);			// Only needed for NeXTStep
-} 
+}
