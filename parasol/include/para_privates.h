@@ -40,7 +40,7 @@
 #define STACK_TESTING	1
 
 #ifndef LOCAL
-#define	LOCAL static	
+#define	LOCAL static
 #endif /* LOCAL */
 
 /************************************************************************/
@@ -59,7 +59,7 @@ LOCAL	void	port_set_surrogate(void *);
 
 /************************************************************************/
 
-LOCAL	void	reaper(void *);
+LOCAL	void	reaper();
 
 /************************************************************************/
 
@@ -73,7 +73,7 @@ LOCAL 	void 	driver(void);
 
 /* Handles events and advances the global time "now" when appropriate.	*/
 /* The debugger is invoked or the simulation is aborted or terminated 	*/
-/* as appropriate.							*/ 
+/* as appropriate.							*/
 
 /************************************************************************/
 
@@ -148,7 +148,7 @@ LOCAL	void	dq_ready(
 	ps_task_t	*tp			/* task pointer		*/
 );
 
-/************************************************************************/	
+/************************************************************************/
 
 LOCAL	void	find_host(
 
@@ -161,7 +161,7 @@ LOCAL	void	find_host(
 
 	ps_task_t	*tp			/* task pointer		*/
 );
-				
+
 /************************************************************************/
 
 LOCAL	void	find_priority(
@@ -213,7 +213,7 @@ LOCAL	void	find_priority_cfs(
 
 /************************************************************************/
 LOCAL	void	find_ready(
-		
+
 /* Finds and dequeues a ready task making it either TASK_COMPUTING,	*/
 /* TASK_HOT, or TASK_BLOCKED depending on whether there is remaining 	*/
 /* cpu time or if the caller is the simulation driver.  If no runnable	*/
@@ -226,7 +226,7 @@ LOCAL	void	find_ready(
 
 /************************************************************************/
 LOCAL	void	find_ready_cfs(
-		
+
 /* Finds and dequeues a ready task making it either TASK_COMPUTING,	*/
 /* TASK_HOT, or TASK_BLOCKED depending on whether there is remaining 	*/
 /* cpu time or if the caller is the simulation driver.  If no runnable	*/
@@ -286,7 +286,7 @@ LOCAL	long	free_table_entry(
 /* Frees a specified dynamic table entry for reuse.			*/
 
 	ps_table_t	*tabp,			/* table pointer	*/
-	long	id				/* table entry index	*/	
+	long	id				/* table entry index	*/
 );
 
 /************************************************************************/
@@ -315,7 +315,7 @@ LOCAL	long	init_table(
 /*		PARASOL Debugger Support Functions			*/
 /************************************************************************/
 
-LOCAL	void	debug(void);					
+LOCAL	void	debug(void);
 
 /* PARASOL debug interpreter.						*/
 
@@ -324,10 +324,10 @@ LOCAL	void	debug(void);
 LOCAL	void	display_breakpoints(void);
 
 /* Gives a summary of all breakpoints that are set.			*/
-	
+
 /************************************************************************/
 
-LOCAL void event_report(void);			
+LOCAL void event_report(void);
 
 /* Reports future calendar events. 					*/
 
@@ -337,7 +337,7 @@ LOCAL void event_report(void);
 LOCAL void hard_report(void);
 
 /* Reports hardware status.						*/
-				
+
 /************************************************************************/
 
 LOCAL void soft_report(void);
@@ -361,7 +361,7 @@ LOCAL	void	set_task_state(
 LOCAL	void	task_breakpoints(void);
 
 /* Allow user to set and delete task state breakpoints.			*/
-	
+
 /************************************************************************/
 /*		PARASOL Angio Tracing Support Functions			*/
 /************************************************************************/
@@ -411,7 +411,7 @@ LOCAL 	long	get_occurence_number(
 /* new_base_name is filled in with a pointer to the shared occurence 	*/
 /* name.								*/
 
-	const	char	*base_name, 
+	const	char	*base_name,
 	char 		**new_base_name
 );
 
@@ -465,7 +465,7 @@ LOCAL	void	adjust_priority(
 
 /************************************************************************/
 
-LOCAL	long 	ancestor(				
+LOCAL	long 	ancestor(
 
 /* Tests if the caller is an ancestor of the given task.  Returns TRUE	*/
 /* if the simulation driver is the caller or if the caller is the given	*/
@@ -652,7 +652,7 @@ LOCAL	int	stat_compare(
 /* This is a callback function that is passed in to quicksort for 	*/
 /* sorting the statistics in alphabetical order by name.		*/
 
-	ps_stat_t 	*s1, 
+	ps_stat_t 	*s1,
 	ps_stat_t 	*s2
 );
 
@@ -680,7 +680,7 @@ LOCAL	void	test_stack(
 LOCAL	void	trace_rep(void);
 
 /* This is representative of the PARASOL tracing function ts_report	*/
- 
+
 #if !HAVE_SIGALTSTACK || _WIN32 || _WIN64
 /************************************************************************/
 
@@ -791,19 +791,19 @@ void update_run_task(ps_task_t * tp);
 
 /* update the sched_info of the run task. this function will be called	*/
 /* at end of running.							*/
-	
+
 
 /************************************************************************/
 void update_ready_task(ps_task_t *tp);
 
 /* update the sched_info of a ready task.		*/
-	
+
  void update_ready(sched_info * si);
 /************************************************************************/
 void update_sleep_task(ps_task_t *tp);
 
 /* update the sched_info of a sleeping task.		*/
-	
+
 
 /************************************************************************/
  void update_cfs_curr(ps_cfs_rq_t * cfs_rq);
@@ -829,15 +829,15 @@ void cap_handler(ps_task_t *tp);
 #define	bid(bp)	((((char *)(bp))-ps_bus_tab.base)/ps_bus_tab.entry_size)
 #define	lid(lp)	((((char *)(lp))-ps_link_tab.base)/ps_link_tab.entry_size)
 #define	pid(pp)	((((char *)(pp))-ps_port_tab.base)/ps_port_tab.entry_size)
-#define	tid(tp)	((((char *)(tp))-ps_task_tab.base)/ps_task_tab.entry_size)
+#define	tid(tp)	(0) // Just make it always 0 for now
 #define	sid(sip)	((((char *)(sip))-ps_sched_info_tab.base)/ps_sched_info_tab.entry_size)
 
-#define	node_ptr(id)	((ps_node_t*)(ps_node_tab.base+(id)*ps_node_tab.entry_size))
+#define	node_ptr(id)	((ps_node_t*)(dummy_node_location))
 #define	group_ptr(id)	((ps_group_t*)(ps_group_tab.base+(id)*ps_group_tab.entry_size))
 #define sched_info_ptr(id)	((sched_info*)(ps_sched_info_tab.base+(id)*ps_sched_info_tab.entry_size))
 #define	bus_ptr(id)	((ps_bus_t*)(ps_bus_tab.base+(id)*ps_bus_tab.entry_size))
 #define	link_ptr(id)	((ps_link_t*)(ps_link_tab.base+(id)*ps_link_tab.entry_size))
-#define	para_stat_ptr(id)	((long*)(ps_para_stat_tab.base+(id)*ps_para_stat_tab.entry_size)) 
+#define	para_stat_ptr(id)	((long*)(ps_para_stat_tab.base+(id)*ps_para_stat_tab.entry_size))
 #define	lock_ptr(id)	((ps_lock_t*)(ps_lock_tab.base+(id)*ps_lock_tab.entry_size))
 #define	sema_ptr(id)	((ps_sema_t*)(ps_sema_tab.base+(id)*ps_sema_tab.entry_size))
 #define	port_ptr(id)	((ps_port_t*)(ps_port_tab.base+(id)*ps_port_tab.entry_size))
@@ -861,27 +861,27 @@ void cap_handler(ps_task_t *tp);
 #define	link_delay	(mp->size/lp->trate)
 
 #if !_WIN32 && !_WIN64
-#if !defined(HAVE__SETJMP) 
+#if !defined(HAVE__SETJMP)
 #define	_setjmp		setjmp
 #endif
-#if !defined(HAVE__LONGJMP) 
+#if !defined(HAVE__LONGJMP)
 #define	_longjmp	longjmp
 #endif
 #endif
 
 #if	!HAVE_SIGALTSTACK && !_WIN32 && !_WIN64
-#define mctx_save(mctx) _setjmp((mctx)->jb) 		/* save machine context */ 
+#define mctx_save(mctx) _setjmp((mctx)->jb) 		/* save machine context */
 #define mctx_restore(mctx) _longjmp((mctx)->jb, 1)	/* restore machine context */
 #define ctxsw(old,new)	if(!_setjmp((old)->jb)) _longjmp((new)->jb, 1)
 #else
-#define mctx_save(mctx) setjmp((mctx)->jb) 		/* save machine context */ 
+#define mctx_save(mctx) setjmp((mctx)->jb) 		/* save machine context */
 #define mctx_restore(mctx) longjmp((mctx)->jb, 1)	/* restore machine context */
 #define ctxsw(old,new)	if(!setjmp((old)->jb)) longjmp((new)->jb, 1)
 #endif
 
 /*	CPU states and flags						*/
 
-#define	CPU_IDLE	0		
+#define	CPU_IDLE	0
 #define	CPU_BUSY	1
 #define	CPU_DOWN	2
 
@@ -922,7 +922,7 @@ void cap_handler(ps_task_t *tp);
 
 /* 	Port states and flags						*/
 
-#define	PORT_FREE	0	
+#define	PORT_FREE	0
 #define	PORT_USED	1
 #define	PORT_SET	2
 #define	PORT_SHARED	3
@@ -961,7 +961,7 @@ void cap_handler(ps_task_t *tp);
 #define	DEFAULT_MAX_GROUPS	10
 #define	DEFAULT_MAX_BUSES	10
 #define	DEFAULT_MAX_LINKS	10
-#define	DEFAULT_MAX_STATS	20		
+#define	DEFAULT_MAX_STATS	20
 #define	DEFAULT_MAX_TASKS	10
 #define	DEFAULT_MAX_LOCKS	10
 #define	DEFAULT_MAX_SEMAPHORES	20
@@ -977,7 +977,7 @@ void cap_handler(ps_task_t *tp);
 #define	NULL_HOST	(-1)
 #define	NULL_BUS	(-1)
 #define	NULL_LINK	(-1)
-#define	NULL_STAT	(-1)			
+#define	NULL_STAT	(-1)
 #define	NULL_TASK	(-1)
 #define	NULL_LOCK	(-1)
 #define	NULL_PORT	(-1)
@@ -1003,7 +1003,7 @@ void cap_handler(ps_task_t *tp);
 #define	SUICIDE		(-321341452)		/* suicide signature	*/
 #define BUFFER		90829098		/* buffer signature	*/
 
-#define TASK_DELTA	50			
+#define TASK_DELTA	50
 #define SUBSCRIBER_DELTA 20
 
 /************************************************************************/
@@ -1023,7 +1023,7 @@ LOCAL	ps_table_t 	ps_pool_tab;		/* buffer pool table	*/
 LOCAL	ps_table_t	ps_env_tab;		/* environment table	*/
 LOCAL	ps_table_t	ps_sched_info_tab;	/* sched_info table	*/
 
-LOCAL	double	t_tab[2][34] = 
+LOCAL	double	t_tab[2][34] =
 		       {12.706,4.303,3.182,2.776,2.571,2.447,2.365,2.306,
 			2.262,2.228,2.201,2.179,2.160,2.145,2.131,2.120,
 			2.110,2.101,2.093,2.086,2.080,2.074,2.069,2.064,
@@ -1031,7 +1031,7 @@ LOCAL	double	t_tab[2][34] =
 			1.980,1.960,63.657,9.925,5.841,4.604,4.032,3.707,
 			3.499,3.355,3.250,3.169,3.106,3.055,3.012,2.977,
 			2.947,2.921,2.898,2.878,2.861,2.845,2.831,2.819,
-			2.807,2.797,2.787,2.779,2.771,2.763,2.756,2.750, 
+			2.807,2.797,2.787,2.779,2.771,2.763,2.756,2.750,
 			2.704,2.660,2.617,2.576};
 
 LOCAL const char *task_state_names[] = {
@@ -1049,7 +1049,7 @@ LOCAL const char *task_state_names[] = {
 	"BLOCKED",
 	NULL };
 
-LOCAL rb_node leaf = { RB_BLACK, NIL, NIL, NIL, 0.0,NULL_SCHED_PTR};	
+LOCAL rb_node leaf = { RB_BLACK, NIL, NIL, NIL, 0.0,NULL_SCHED_PTR};
 
 /* WCS - 12 June 1999 - Moved.  See get_dss and ts_report. 		*/
 extern long ps_trsct;				/* trace_rep stack ctest*/

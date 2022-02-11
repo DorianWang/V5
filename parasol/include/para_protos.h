@@ -91,7 +91,7 @@ extern	ps_table_t	ps_stat_tab;
 /* 	Macros								*/
 
 #define ps_choice(n)		((long)((n)*drand48()))
-#define	ps_exponential(mean)	((double)(-((mean)*log(drand48())))) 
+#define	ps_exponential(mean)	((double)(-((mean)*log(drand48()))))
 #define	ps_random		(drand48())
 #define	ps_uniform(low, high)   ((low) + ((high) - (low))*drand48())
 
@@ -117,8 +117,8 @@ extern	ps_table_t	ps_stat_tab;
 #define ps_end_compute_time(task)  (ps_task_ptr((task))->end_compute_time) /* tomari quorum */
 #define ps_preempted_time(task)	(ps_task_ptr((task))->pt_sum)	/*Added by Tao for task preemption time*/
 
-#define	ps_task_ptr(id)	((ps_task_t*)(ps_task_tab.base+(id)*ps_task_tab.entry_size))
-#define	stat_ptr(id)	((ps_stat_t*)(ps_stat_tab.base+(id)*ps_stat_tab.entry_size)) 
+#define	ps_task_ptr(id)	((ps_task_t*)(dummy_task_location))
+#define	stat_ptr(id)	((ps_stat_t*)(dummy_stat_location))
 #define ps_declare_glocal(set, type) (ps_allocate_glocal((set), sizeof(type)))
 #define ps_glocal(set, index, type) (*((type*)ps_glocal_value((set),(index))))
 
@@ -210,6 +210,16 @@ extern	ps_table_t	ps_task_tab;		/* task table		*/
 extern	long		ts_flag;		/* trace state flag	*/
 extern  double		ps_run_time;		/* stop time		*/
 
+// Extra globals for stubbing.
+extern ps_task_t* dummy_task_location; // A single task used to take calls
+extern ps_port_t* dummy_port_location;
+extern ps_stat_t* dummy_stat_location;
+extern ps_node_t* dummy_node_location; // node_ptr(id) is in para_privates.h
+extern ps_event_t* dummy_event_location;
+extern ps_cpu_t* dummy_cpu_location;
+
+
+
 /************************************************************************/
 /*                 P A R A S O L   P R O T O T Y P E S			*/
 /************************************************************************/
@@ -270,7 +280,7 @@ extern	SYSCALL	ps_children(
 
 /************************************************************************/
 
-extern	SYSCALL	ps_compute(	
+extern	SYSCALL	ps_compute(
 
 /* Retains processor for "delta" (scaled) cpu time. Interruptions are 	*/
 /* permitted (i.e., PR or RR scheduling).				*/
@@ -370,7 +380,7 @@ extern	SYSCALL	ps_migrate(
 /* are lost. The target task must be a descendant of the caller or the 	*/
 /* caller itself. As well, a syncing task cannot be migrated. Any 	*/
 /* port set surrogate tasks are migrated with the target.		*/
- 
+
 	long	task,				/* task id 		*/
 	long	node,				/* node id 		*/
 	long	host				/* host id 		*/
@@ -392,7 +402,7 @@ SYSCALL ps_ready_queue(
 extern	SYSCALL ps_receive_links(
 
 /* Returns the receive links accessible by the specified task.		*/
- 
+
 	long	task,				/* task id		*/
 	long	*nlp,				/* # links pointer	*/
 	long	link_array[]			/* link array		*/
@@ -454,7 +464,7 @@ extern	SYSCALL	ps_suspend(
 
 /************************************************************************/
 
-extern	SYSCALL	ps_sync(	
+extern	SYSCALL	ps_sync(
 
 /* Retains processor for "delta" (scaled) cpu time w/o interruption.	*/
 /* PR and RR sheduling are postponed until delta time expires.		*/
@@ -466,7 +476,7 @@ extern	SYSCALL	ps_sync(
 /* 		Message Passing Related SYSCALLS			*/
 /************************************************************************/
 
-extern	SYSCALL	ps_allocate_port(	
+extern	SYSCALL	ps_allocate_port(
 
 /* Allocates a named port to a specified existing task. 		*/
 
@@ -496,7 +506,7 @@ extern	SYSCALL	ps_allocate_shared_port(
 /************************************************************************/
 
 extern	SYSCALL ps_broadcast(
-		
+
 /* Globally broadcasts a message without use of a bus or a link.	*/
 
 	long	type,				/* message type		*/
@@ -506,7 +516,7 @@ extern	SYSCALL ps_broadcast(
 
 /************************************************************************/
 
-extern	SYSCALL ps_buffer_size(			
+extern	SYSCALL ps_buffer_size(
 
 /* Returns the size of a buffer if it is a member of a pool.		*/
 
@@ -592,7 +602,7 @@ extern	SYSCALL	ps_link_send(
 
 /************************************************************************/
 
-extern	SYSCALL ps_localcast(		
+extern	SYSCALL ps_localcast(
 
 /* Broadcasts a message to all tasks on caller's node without use of a 	*/
 /* bus or a link.							*/
@@ -604,7 +614,7 @@ extern	SYSCALL ps_localcast(
 
 /************************************************************************/
 
-extern	SYSCALL ps_multicast(	
+extern	SYSCALL ps_multicast(
 
 /* Broadcasts a message to descendants only without use of a bus or a 	*/
 /* link.								*/
@@ -616,7 +626,7 @@ extern	SYSCALL ps_multicast(
 
 /************************************************************************/
 
-extern	SYSCALL	ps_my_ports(	
+extern	SYSCALL	ps_my_ports(
 
 /* Returns ports owned by caller excluding those in port sets. 		*/
 
@@ -635,7 +645,7 @@ extern	SYSCALL	ps_owner(
 
 /************************************************************************/
 
-extern	SYSCALL	ps_pass_port( 		
+extern	SYSCALL	ps_pass_port(
 
 /* Transfers a "port" to another "task".  Caller must be port owner or 	*/
 /* an ancestor of the owner.  All existing queued messages are retained.*/
@@ -750,7 +760,7 @@ extern	SYSCALL	ps_receive_shared(
 
 /************************************************************************/
 
-extern	SYSCALL	ps_release_port(		
+extern	SYSCALL	ps_release_port(
 
 /* Deallocates a specified "port" from caller. All queued messages are 	*/
 /* lost with possible memory leak if caller was to free text string.	*/
@@ -869,7 +879,7 @@ extern	SYSCALL	ps_wait_semaphore(
 /* 		Statistics Related SYSCALLS				*/
 /************************************************************************/
 
-extern	SYSCALL	ps_block_stats(	
+extern	SYSCALL	ps_block_stats(
 
 /* Collects and reports blocked statistics by blocking the simulation 	*/
 /* run into "nb" blocks after allowing for transients to die in "delay".*/
@@ -912,11 +922,11 @@ SYSCALL	ps_record_rate_stat(
 /************************************************************************/
 
 extern long ps_get_node_stat_index(
-    
+
 /* Return the index to the internal node utilization statistic. */
 
 	long node_id				/* Node id 		*/
-);	
+);
 
 /************************************************************************/
 
@@ -942,8 +952,8 @@ SYSCALL  ps_record_stat(
 	sp = stat_ptr(stat);
 
 	switch( sp->type ) {
-	
-	case SAMPLE:	
+
+	case SAMPLE:
 		(sp->values.sam.count)++;
 		sp->resid += value;
 		temp = sp->values.sam.sum + sp->resid;
@@ -960,13 +970,13 @@ SYSCALL  ps_record_stat(
 		sp->resid += (delta * sp->values.var.old_value);
 		temp = sp->values.var.integral + sp->resid;
 		sp->resid += (sp->values.var.integral - temp);
-		sp->values.var.integral = temp; 
+		sp->values.var.integral = temp;
 		sp->values.var.old_time = ps_now;
 		sp->values.var.old_value = value;
 		break;
 
 	default:
-		
+
 	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
 	     return(SYSERR);
 	}
@@ -1000,8 +1010,8 @@ SYSCALL	ps_record_stat2(
 	  return(SYSERR);
 
 	switch((sp = stat_ptr(stat))->type) {
-	
-	case SAMPLE:	
+
+	case SAMPLE:
 		(sp->values.sam.count)++;
 		sp->resid += value;
 		temp = sp->values.sam.sum + sp->resid;
@@ -1018,13 +1028,13 @@ SYSCALL	ps_record_stat2(
 		sp->resid += (delta * sp->values.var.old_value);
 		temp = sp->values.var.integral + sp->resid;
 		sp->resid += (sp->values.var.integral - temp);
-		sp->values.var.integral = temp; 
+		sp->values.var.integral = temp;
 		sp->values.var.old_time = start;
 		sp->values.var.old_value = value;
 		break;
 
 	default:
-		
+
 	  /* return(BAD_CALL("Only works for VARIABLE and SAMPLE statistics")); */
 	  return(SYSERR);
 	}
@@ -1131,7 +1141,7 @@ extern SYSCALL ps_build_node(
 	double	quantum,			/* quantum size		*/
 	long	discipline,			/* queueing discipline	*/
 	long	sl				/* statistics level	*/
-);	
+);
 
 /************************************************************************/
 
@@ -1140,25 +1150,25 @@ extern SYSCALL ps_build_node2(
 /* Constructs a named node with "ncpu" processors with a speed factor	*/
 /* "speed" which scales the durations of TASK_COMPUTING, TASK_SYNC and 	*/
 /* TASK_BLOCKED states. The quantum duration is specified by quantum, 	*/
-/* and the user defined scheduling task is specified by "scheduler"	*/  
+/* and the user defined scheduling task is specified by "scheduler"	*/
 
-	const	char	*name, 
-	long	ncpu, 
-	double	speed, 
+	const	char	*name,
+	long	ncpu,
+	double	speed,
  	void 	(*scheduler)(void *),
 	long	sl
 );
 /************************************************************************/
-SYSCALL ps_build_node_cfs( 
+SYSCALL ps_build_node_cfs(
 
 /* Constructs a cfs_rq for the node whose discipline is CFS.		*/
-/*  If ngroup>0, construct a group cfs_rq for each group 		*/ 
+/*  If ngroup>0, construct a group cfs_rq for each group 		*/
 
 	long	node				/* node size - # cpu's	*/
 );
 /************************************************************************/
-/* WCS - sep, 2008 - Added , build a group */ 
-SYSCALL ps_build_group( 
+/* WCS - sep, 2008 - Added , build a group */
+SYSCALL ps_build_group(
 
 	const	char	*name,			/* group name		*/
 	double	group_share,			/* group share		*/
@@ -1194,7 +1204,7 @@ extern	double	ps_erlang(
 
 /************************************************************************/
 
-extern SYSCALL	ps_run_parasol( 
+extern SYSCALL	ps_run_parasol(
 
 /* Runs PARASOL using supplied parameters and flags			*/
 
@@ -1235,14 +1245,14 @@ SYSCALL ps_inject_trace_name (
 
 	const	char	*name			/* base trace name	*/
 );
- 
+
 
 /************************************************************************/
 
 SYSCALL ps_task_cycle_begin (void);
 
 /*	Logs a wCycle event.						*/
- 
+
 /************************************************************************/
 
 SYSCALL ps_toggle_angio_output(
@@ -1305,7 +1315,7 @@ void *ps_glocal_value (
 /*	want to consider implementing this as a macro once everything	*/
 /*	is debugged, for obvious performance reasons.			*/
 
-	long		env,			/* environment id	*/	
+	long		env,			/* environment id	*/
 	long		gloc			/* variable id		*/
 );
 
@@ -1320,7 +1330,7 @@ void	ts_report(
 	ps_task_t	*tp,			/* task pointer		*/
 	const	char	*sp			/* string pointer	*/
 );
-	
+
 /************************************************************************/
 #ifdef	CUSTOM
 extern	ps_event_t	*add_event(
@@ -1333,7 +1343,7 @@ extern	ps_event_t	*add_event(
 	long	type,				/* primary event code	*/
 	long	*gp				/* generic pointer	*/
 );
-#endif	
+#endif
 /************************************************************************/
 #ifdef	CUSTOM
 extern	void	remove_event(
@@ -1346,7 +1356,7 @@ extern	void	remove_event(
 
 	ps_event_t	*ep			/* event pointer	*/
 );
-#endif	
+#endif
 
 #ifdef __cplusplus
 } /* extern "C" */

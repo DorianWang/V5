@@ -142,7 +142,7 @@ Model::solve( solve_using run_function, const std::string& input_file_name, LQIO
     Model model( document, input_file_name, output_file_name, output_format );
     LQX::Program * program = nullptr;
     FILE * output = nullptr;
-    try { 
+    try {
 	if ( !model.prepare() ) throw std::runtime_error( "Model::prepare" );
 
 	document->mergePragmas( pragmas.getList() );       /* Save pragmas */
@@ -159,7 +159,7 @@ Model::solve( solve_using run_function, const std::string& input_file_name, LQIO
 	    document->registerExternalSymbolsWithProgram(program);
 	    program->getEnvironment()->getMethodTable()->registerMethod(new SolverInterface::Solve(document, run_function, &model));
 	    LQIO::RegisterBindings(program->getEnvironment(), document);
-	
+
 	    if ( !output_file_name.empty() && output_file_name != "-" && LQIO::Filename::isRegularFile(output_file_name) ) {
 		output = fopen( output_file_name.c_str(), "w" );
 		if ( !output ) {
@@ -183,7 +183,7 @@ Model::solve( solve_using run_function, const std::string& input_file_name, LQIO
 		    program->getEnvironment()->invokeGlobalMethod("solve", &args);
 		}
 	    }
-	
+
 	} else {
 	    /* There is no control flow program, check for $-variables */
 	    if ( document->getSymbolExternalVariableCount() != 0 ) {
@@ -202,11 +202,11 @@ Model::solve( solve_using run_function, const std::string& input_file_name, LQIO
     }
 
     /* Clean up */
-    
+
     if ( output ) fclose( output );
     if ( program ) delete program;
     if ( document ) delete document;
-    
+
     return status;
 }
 
@@ -370,14 +370,19 @@ Model::create()
     for ( unsigned j = 0; j < MAX_NODES; ++j ) {
 	link_tab[j] = -1;		/* Reset link table.	*/
     }
-
+    printf("Ready to create!\n");
     for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::create ) );
+    printf("After Processors!\n");
     for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::create ) );
+    printf("After Groups!\n");
     for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::create ) );
+    printf("After Tasks!\n");
 
     if ( std::none_of( Task::__tasks.begin(), Task::__tasks.end(), Predicate<Task>( &Task::is_reference_task ) ) && open_arrival_count == 0 ) {
 	LQIO::solution_error( LQIO::ERR_NO_REFERENCE_TASKS );
     }
+
+    printf("After creation!\n");
 
     if ( LQIO::io_vars.anError() ) return false;		/* Early termination */
 
@@ -390,7 +395,7 @@ Model::create()
 	    exit( INVALID_ARGUMENT );
 	}
     }
-
+   printf("Done with model::create()\n");
     return true;
 }
 
@@ -528,6 +533,7 @@ Model::start()
 
     deferred_exception = false;
     ps_run_parasol( _parameters._run_time+1.0, _parameters._seed, simulation_flags );	/* Calls ps_genesis */
+    printf("Finished \"running\" parasol\n");
 
     /*
      * Run completed.
@@ -542,9 +548,13 @@ Model::start()
 
     _document->print( _output_file_name, _document->getResultInvocationNumber() > 0 ? SolverInterface::Solve::customSuffix : std::string(""), _output_format, rtf_flag );
 
+    printf("After document printing\n");
     if ( _confidence > _parameters._precision && _parameters._precision > 0.0 ) {
 	LQIO::solution_error( ADV_PRECISION, _parameters._precision, _parameters._block_period * number_blocks + _parameters._initial_delay, _confidence );
     }
+
+
+
     if ( messages_lost ) {
 	for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
 	    const Task * cp = *task;
@@ -553,6 +563,7 @@ Model::start()
 	    }
 	}
     }
+
 
     if ( check_stacks ) {
 #if HAVE_MCHECK
@@ -646,22 +657,25 @@ Model::run( int task_id )
 #endif
 
     try {
+       printf("Before create()\n"); // Where is the Floating point exception?
 	if ( !create() ) {
 	    rc = false;
 	} else if ( no_execute_flag ) {
 	    rc = true;
 	} else {
+	   printf("After create()\n");
 
 	    /*
 	     * Start all of the tasks.
 	     */
 
 	    std::for_each( Task::__tasks.begin(), Task::__tasks.end(), &Model::start_task );
-
+      printf("After start_task()\n");
 	    if ( _parameters._initial_delay ) {
 		if ( verbose_flag ) {
 		    (void) putc( 'I', stderr );
 		}
+		printf("ps_sleep()\n");
 		ps_sleep( _parameters._initial_delay );
 		if ( deferred_exception ) throw std::runtime_error( "terminating" );
 	    }
@@ -669,8 +683,9 @@ Model::run( int task_id )
 	    /*
 	     * Reset all counters (stuff during "initial_delay" is ignored)
 	     */
-
+      printf("Model::reset_stats()\n");
 	    reset_stats();
+      printf("After Model::reset_stats()\n");
 
 	    /*
 	     * Accumulate statistical data.
@@ -683,8 +698,11 @@ Model::run( int task_id )
 		    (void) fprintf( stderr, " %c", "0123456789"[number_blocks%10] );
 		}
 
+      printf("another ps_sleep()\n");
 		ps_sleep( _parameters._block_period );
+		printf("Model::accumulate_data()\n");
 		accumulate_data();
+		printf("after Model::accumulate_data()\n");
 
 		if ( number_blocks > 2 ) {
 		    _confidence = rms_confidence();
@@ -830,6 +848,10 @@ Model::normalized_conf95( const result_t& stat )
 void
 ps_genesis(void *)
 {
+   printf("Model ps_genesis\n");
+   // #define	ps_myself ((((char *)ps_htp)-ps_task_tab.base)/ps_task_tab.entry_size)
+   printf("tab sizes are %d and %d.\n", ps_task_tab.base, ps_task_tab.entry_size);
+   if (ps_task_tab.entry_size == 0) ps_task_tab.entry_size = 1;
     if (!Model::__model->run( ps_myself ) ) {
 	LQIO::solution_error( ERR_INITIALIZATION_FAILED );
     }

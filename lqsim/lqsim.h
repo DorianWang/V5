@@ -244,4 +244,43 @@ private:
 };
 
 static inline void throw_bad_parameter() { throw std::domain_error( "invalid parameter" ); }
+
+#ifdef __cplusplus
+   #include <iostream>
+   #if defined(__GNUC__)
+      #define FUNC_NAME_OUT std::cout << "Current func: " << __PRETTY_FUNCTION__ << "\n";
+   #elif defined(_MSC_VER)
+      #define FUNC_NAME_OUT std::cout << "Current func: " << __FUNCSIG__ << "\n";
+   #else
+      #define FUNC_NAME_OUT std::cout << "Current func: " << __func__ << "\n"
+   #endif
+
+#else
+   // Don't include iostream, use printf instead.
+   #if defined(__GNUC__)
+      #define FUNC_NAME_OUT printf("Current func: %s\n", __PRETTY_FUNCTION__);
+   #elif defined(_MSC_VER)
+      #define FUNC_NAME_OUT printf("Current func: %s\n", __FUNCSIG__);
+   #else
+      #define FUNC_NAME_OUT printf("Current func: %s\n", __func__);
+   #endif
+#endif
+
+#define PRINT_FUNC_NAME_ONCE static int already_printed = 1; \
+                           if (already_printed > 0){ \
+                              FUNC_NAME_OUT \
+                              already_printed--; \
+                           }
+#define PRINT_FUNC_NAME_N(x) static int already_printed = (x); \
+                           if (already_printed > 0){ \
+                              FUNC_NAME_OUT \
+                              already_printed--; \
+                           }
+
+
+
+
+
+
+
 #endif

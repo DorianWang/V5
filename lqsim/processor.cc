@@ -93,7 +93,9 @@ Processor::create()
 	LQIO::input_error2( ERR_CANNOT_CREATE_X, "processor", name() );
     } else {
 	processor_table[_node_id] = this;
+	printf("before ps_get_node_stat_index\n");
 	r_util.init( ps_get_node_stat_index( _node_id ) );
+	printf("after ps_get_node_stat_index\n");
     }
     return *this;
 }

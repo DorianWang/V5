@@ -56,7 +56,7 @@ std::map<LQIO::DOM::ActivityList*, ActivityList *> Activity::domToNative;
 
 Activity::Activity( Task * cp, LQIO::DOM::Phase * dom )
     : _dom(dom),
-      _name(dom ? dom->getName() : ""),     
+      _name(dom ? dom->getName() : ""),
       _arrival_rate(0.0),
       _cv_sqr(0.0),
       _think_time(0.0),
@@ -76,6 +76,7 @@ Activity::Activity( Task * cp, LQIO::DOM::Phase * dom )
       _cpu_active(0),
       _hist_data(nullptr)
 {
+   FUNC_NAME_OUT
     if ( dom && (dom->hasHistogram() || dom->hasMaxServiceTimeExceeded()) ) {
 //	    _hist_data = new Histogram( _dom->getHistogram() );
     }
@@ -95,13 +96,13 @@ Activity::~Activity()
 
 
 Activity&
-Activity::rename( const std::string& s ) 
-{      
+Activity::rename( const std::string& s )
+{
     const_cast<std::string&>(_name) = s;
     return *this;
 }
 
-Activity& 
+Activity&
 Activity::set_DOM(LQIO::DOM::Phase* phaseInfo)
 {
     _dom = phaseInfo;
@@ -138,12 +139,12 @@ Activity::configure()
 {
     const double n_calls = _calls.configure( _dom, (bool)(type() == LQIO::DOM::Phase::Type::STOCHASTIC) );
     double slice;
-    
+
     _active = 0;
     _cpu_active = 0;
 
     if ( _dom ) {
-	try { 
+	try {
 	    _think_time = _dom->getThinkTimeValue();
 	}
 	catch ( const std::domain_error& e ) {
@@ -260,7 +261,7 @@ Activity::collect( std::deque<Activity *>& activity_stack, ActivityList::Collect
     if ( std::find( activity_stack.begin(), activity_stack.end(), this ) == activity_stack.end() ) {
 	_phase = data.phase;
 	_is_reachable = true;
-	
+
 	sum = (this->*data._f)( data );
 
 	if ( find_reply( data._e ) ) {
@@ -310,7 +311,7 @@ Activity::compute_minimum_service_time() const
     double sum = for_each( _calls.begin(), _calls.end(), ConstExecSum<const tar_t,double>( &tar_t::compute_minimum_service_time ) ).sum();
     return service() + sum;
 }
-    
+
 
 /*
  * Find the minimum service time for this activity.  For non-reference tasks, it's phase one only.
@@ -345,9 +346,9 @@ Activity::reset_stats()
     r_afterQuorumThreadWait.reset();	/* tomari quorum */
 
     _calls.reset_stats();
- 
+
     /* Histogram stuff */
- 
+
     if ( _hist_data ) {
 	_hist_data->reset();
     }
@@ -367,7 +368,7 @@ Activity::accumulate_data()
     r_slices.accumulate();
     r_proc_delay_sqr.accumulate_variance( r_proc_delay.accumulate() );
     r_afterQuorumThreadWait.accumulate();	   /* tomari quorum */
- 
+
     /*
      * Note -- do accummulate_stat LAST for r_cycle as
      * accumulate resets the raw statistic.  r_cycle is used by
@@ -396,8 +397,8 @@ Activity::accumulate_data()
 /* ------------------------------------------------------------------------ */
 
 
-/* 
- * Go over all of the calls specified within this activity and do something similar to store_snr/rnv 
+/*
+ * Go over all of the calls specified within this activity and do something similar to store_snr/rnv
  */
 
 Activity&
@@ -405,13 +406,13 @@ Activity::add_calls()
 {
     const std::vector<LQIO::DOM::Call*>& callList = get_calls();
     std::vector<LQIO::DOM::Call*>::const_iterator iter;
-	
+
     /* This provides us with the DOM Call which we can then take apart */
     for (iter = callList.begin(); iter != callList.end(); ++iter) {
 	LQIO::DOM::Call* domCall = *iter;
 	LQIO::DOM::Entry* toDOMEntry = const_cast<LQIO::DOM::Entry*>(domCall->getDestinationEntry());
 	Entry* destEntry = Entry::find(toDOMEntry->getName().c_str());
-		
+
 	/* Make sure all is well */
 	if (!destEntry) {
 	    LQIO::input_error2( LQIO::ERR_NOT_DEFINED, toDOMEntry->getName().c_str() );
@@ -437,14 +438,14 @@ Activity::add_reply_list()
     if (domReplyList.size() == 0) {
 	return * this;
     }
-	
+
     /* Walk over the list and do the equivalent of calling act_add_reply n times */
     std::vector<LQIO::DOM::Entry*>::const_iterator iter;
     for (iter = domReplyList.begin(); iter != domReplyList.end(); ++iter) {
 	const LQIO::DOM::Entry* domEntry = *iter;
 	const char * entry_name = domEntry->getName().c_str();
 	Entry * ep = Entry::find( entry_name );
-	
+
 	if ( !ep ) {
 	    LQIO::input_error2( LQIO::ERR_NOT_DEFINED, entry_name );
 	} else if ( ep->task() != task() ) {
@@ -460,11 +461,11 @@ Activity::add_reply_list()
 
 Activity&
 Activity::add_activity_lists()
-{  
+{
     /* Obtain the Task and Activity information DOM records */
     LQIO::DOM::Activity* domAct = dynamic_cast<LQIO::DOM::Activity*>(get_DOM());
     if (domAct == nullptr) { return *this; }
-	
+
     /* May as well start with the outputToList, this is done with various methods */
     LQIO::DOM::ActivityList* joinList = domAct->getOutputToList();
     ActivityList * localActivityList = nullptr;
@@ -479,7 +480,7 @@ Activity::add_activity_lists()
 		LQIO::input_error2( LQIO::ERR_NOT_DEFINED, domAct->getName().c_str() );
 		continue;
 	    }
-			
+
 	    /* Add the activity to the appropriate list based on what kind of list we have */
 	    switch ( joinList->getListType() ) {
 	    case LQIO::DOM::ActivityList::Type::JOIN:
@@ -495,14 +496,14 @@ Activity::add_activity_lists()
 		abort();
 	    }
 	}
-		
+
 	/* Create the association for the activity list */
 	domToNative[joinList] = localActivityList;
 	if (joinList->getNext() != nullptr) {
 	    actConnections[joinList] = joinList->getNext();
 	}
     }
-	
+
     /* Now we move onto the inputList, or the fork list */
     LQIO::DOM::ActivityList* forkList = domAct->getInputFromList();
     localActivityList = nullptr;
@@ -517,10 +518,10 @@ Activity::add_activity_lists()
 		LQIO::input_error2( LQIO::ERR_NOT_DEFINED, domAct->getName().c_str() );
 		continue;
 	    }
-			
+
 	    /* Add the activity to the appropriate list based on what kind of list we have */
 	    switch ( forkList->getListType() ) {
-	    case LQIO::DOM::ActivityList::Type::FORK:	
+	    case LQIO::DOM::ActivityList::Type::FORK:
 		localActivityList = nextActivity->act_fork_item( forkList );
 		break;
 	    case LQIO::DOM::ActivityList::Type::AND_FORK:
@@ -536,7 +537,7 @@ Activity::add_activity_lists()
 		abort();
 	    }
 	}
-		
+
 	/* Create the association for the activity list */
 	domToNative[forkList] = localActivityList;
 	if (forkList->getNext() != nullptr) {
@@ -568,7 +569,7 @@ Activity::act_add_reply ( Entry * ep )
 void
 Activity::print_debug_info()
 {
-	
+
     (void) fprintf( stddbg, "----------\n%s, phase %d %s\n", name(), _phase, type() == LQIO::DOM::Phase::Type::DETERMINISTIC ? "Deterministic" : "" );
 
     (void) fprintf( stddbg, "\tservice: %5.2g {%5.2g, %5.2g}\n", service(), _shape, _scale );
@@ -631,7 +632,7 @@ Activity::insertDOMResults()
 }
 
 /*
- * Add activity to the sequence list.  
+ * Add activity to the sequence list.
  */
 
 ActivityList *
@@ -663,7 +664,7 @@ Activity::act_and_join_list ( ActivityList* input_list, LQIO::DOM::ActivityList 
     if ( _output ) {
 	LQIO::input_error2( LQIO::ERR_DUPLICATE_ACTIVITY_LVALUE, task()->name(), name() );
 	return input_list;
-    } 
+    }
 
     Task * cp = task();
 
@@ -681,7 +682,7 @@ Activity::act_and_join_list ( ActivityList* input_list, LQIO::DOM::ActivityList 
     if ( list->get_quorum_count() > 0 ) {
 	cp->max_phases( 2 );
     }
-          
+
     return list;
 }
 
@@ -799,7 +800,7 @@ ActivityList *
 Activity::act_loop_list ( ActivityList * input_list, LQIO::DOM::ActivityList * dom )
 {
     LoopActivityList * list = nullptr;
-	  
+
     if ( _is_start_activity ) {
 	LQIO::input_error2( LQIO::ERR_IS_START_ACTIVITY, task()->name(), name() );
     } else if ( _input ) {
@@ -867,7 +868,7 @@ activity_cycle_error( int err, std::deque<Activity *>& activity_stack )
 {
     std::string buf;
     Activity * ap = activity_stack.back();
-    
+
     for ( std::deque<Activity *>::const_reverse_iterator i = activity_stack.rbegin(); i != activity_stack.rend(); ++i ) {
 	if ( i != activity_stack.rbegin() ) {
 	    buf += ", ";
@@ -966,7 +967,7 @@ rv_gamma( const double scale, const double shape )
 
 
 /*
- * Returns a RV with an exponential distribution. 
+ * Returns a RV with an exponential distribution.
  */
 
 static double
