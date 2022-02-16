@@ -6,7 +6,7 @@
 # $Id: Makefile.am 11142 2012-10-06 16:22:24Z greg $
 # ------------------------------------------------------------------------
 
-AM_CPPFLAGS	= -I../include
+AM_CPPFLAGS	= -I../include -x c++
 noinst_LIBRARIES =  libparasol.a libparasolc.a libparasol++.a
 
 libparasol_a_SOURCES = para_library.c standalone.c 
