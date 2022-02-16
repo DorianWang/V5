@@ -2,14 +2,19 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Release" />
-	<File name="include\para_internals.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="include\para_types.h" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="0" topLine="69" />
+			<Cursor1 position="7241" topLine="180" />
 		</Cursor>
 	</File>
 	<File name="include\para_protos.h" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="7827" topLine="200" />
+			<Cursor1 position="7910" topLine="194" />
+		</Cursor>
+	</File>
+	<File name="include\para_internals.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="0" topLine="69" />
 		</Cursor>
 	</File>
 	<File name="src\genesis.cc" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -22,9 +27,14 @@
 			<Cursor1 position="0" topLine="30" />
 		</Cursor>
 	</File>
-	<File name="include\para_types.h" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="include\para_privates.h" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="2476" topLine="51" />
+			<Cursor1 position="33531" topLine="1032" />
+		</Cursor>
+	</File>
+	<File name="src\task.cc" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="690" topLine="0" />
 		</Cursor>
 	</File>
 	<File name="include\para_entity.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -32,19 +42,9 @@
 			<Cursor1 position="0" topLine="30" />
 		</Cursor>
 	</File>
-	<File name="include\para_privates.h" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="26388" topLine="823" />
-		</Cursor>
-	</File>
 	<File name="src\para_library.c" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="127878" topLine="4581" />
-		</Cursor>
-	</File>
-	<File name="src\task.cc" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="690" topLine="0" />
+			<Cursor1 position="98356" topLine="3430" />
 		</Cursor>
 	</File>
 </CodeBlocks_layout_file>
