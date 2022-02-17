@@ -7,7 +7,7 @@
 # ------------------------------------------------------------------------
 
 AM_CPPFLAGS	= -I../include 
-noinst_LIBRARIES =  libparasol.a libparasol++.a
+noinst_LIBRARIES =  libparasol.a libparasolc.a libparasol++.a
 
 libparasol_a_SOURCES = para_library.cpp standalone.cpp 
 EXTRA_libparasol_a_SOURCES = drand48.c
