@@ -1,0 +1,129 @@
+# depslib dependency file v1.0
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\carrier.cc
+	<stdlib.h>
+	<carrier.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\carrier.h
+	<para_entity.h>
+	<node.h>
+	<port.h>
+
+1642008011 c:\users\admin\documents\github\v5\parasol\include\para_entity.h
+	<parasol.h>
+
+1644606499 c:\users\admin\documents\github\v5\parasol\include\parasol.h
+	<config.h>
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<ctype.h>
+	<setjmp.h>
+	<signal.h>
+	<math.h>
+	<para_protos.h>
+	<malloc.h>
+
+1636130580 c:\users\admin\documents\github\v5\parasol\\config.h
+
+1645114283 c:\users\admin\documents\github\v5\parasol\include\para_protos.h
+	<para_types.h>
+	"drand48.h"
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\para_types.h
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\drand48.h
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\node.h
+	<para_entity.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\port.h
+	<para_entity.h>
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\drand48.c
+	<config.h>
+	"drand48.h"
+
+1645113292 source:c:\users\admin\documents\github\v5\parasol\src\genesis.cc
+	<genesis.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\genesis.h
+	<task.h>
+	<node.h>
+	<carrier.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\task.h
+	<para_entity.h>
+	<node.h>
+	<port.h>
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\node.cc
+	<node.h>
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\para_entity.cc
+	<stdlib.h>
+	<para_entity.h>
+
+1645113556 source:c:\users\admin\documents\github\v5\parasol\src\para_library.c
+	"para_internals.h"
+	"para_privates.h"
+	"para_protos.h"
+	<unistd.h>
+	<signal.h>
+	<strings.h>
+	<setjmp.h>
+
+1645113689 c:\users\admin\documents\github\v5\parasol\include\para_internals.h
+	"parasol.h"
+
+1645050087 c:\users\admin\documents\github\v5\parasol\include\para_privates.h
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\port.cc
+	"port.h"
+	<stdlib.h>
+	<port.h>
+
+1636041176 source:c:\users\admin\documents\github\v5\parasol\src\semaphore.cc
+	<semaphore.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\semaphore.h
+	<para_entity.h>
+
+1636041176 source:c:\users\admin\documents\github\v5\parasol\src\spinlock.cc
+	<spinlock.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\spinlock.h
+	<para_entity.h>
+
+1645112631 source:c:\users\admin\documents\github\v5\parasol\src\standalone.c
+	<para_internals.h>
+	<para_privates.h>
+	"config.h"
+	<fenv.h>
+	<ieeefp.h>
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\statistic.cc
+	<statistic.h>
+
+1636041176 c:\users\admin\documents\github\v5\parasol\include\statistic.h
+	<para_entity.h>
+
+1642008011 source:c:\users\admin\documents\github\v5\parasol\src\task.cc
+	<stdlib.h>
+	<task.h>
+
+1645113556 source:c:\users\admin\documents\github\v5\parasol\src\para_library.cpp
+	"para_internals.h"
+	"para_privates.h"
+	"para_protos.h"
+	<unistd.h>
+	<signal.h>
+	<strings.h>
+	<setjmp.h>
+
+1645112631 source:c:\users\admin\documents\github\v5\parasol\src\standalone.cpp
+	<para_internals.h>
+	<para_privates.h>
+	"config.h"
+	<fenv.h>
+	<ieeefp.h>
+

@@ -145,8 +145,9 @@
 /*									*/
 /************************************************************************/
 
-#include <para_internals.h>
-#include <para_privates.h>
+#include "para_internals.h"
+#include "para_privates.h"
+#include "para_protos.h"
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -567,7 +568,7 @@ SYSCALL	ps_kill(
 	sched_info	*si;
 	long	sib;				/* sibling index	*/
 	long	temp;				/* temporary		*/
-	void	release_ports();		/* port killer		*/
+	//void	release_ports();		/* port killer		*/
 
 	if(task >= ps_task_tab.tab_size || task < 2) {
 		return(BAD_PARAM("task"));
@@ -964,7 +965,7 @@ SYSCALL	ps_sleep(
 	char		string[40];		/* Output buffer	*/
 
 	np = node_ptr(ps_htp->node);
-	if (ps_htp != dummy_node_location) ps_htp = dummy_node_location;
+	if (ps_htp != dummy_task_location) ps_htp = dummy_task_location;
 	printf("In ps_sleep()\n");
 
 	if(duration <= 0.0) {
@@ -1736,7 +1737,7 @@ SYSCALL	ps_pass_port(
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	ps_tp_pair_t *pairp;			/* pair pointer		*/
 	ps_tp_pair_t *lastp;			/* last pair pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	//void	free_pair();			/* tp pair sink		*/
 	long	task2;				/* Saves the owner	*/
 
 	if(port < 0 || port >= ps_port_tab.tab_size)
@@ -2351,7 +2352,7 @@ SYSCALL	ps_reset_semaphore(
 	char		string[30];		/* trace string		*/
 	ps_tp_pair_t	*pp;			/* tp pair pointer	*/
 	ps_tp_pair_t	*opp;			/* old tp pair pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	//void	free_pair();			/* tp pair sink		*/
 
 	if(sid < 0)
 		return(BAD_PARAM("sid"));
@@ -2402,7 +2403,7 @@ SYSCALL ps_signal_semaphore(
 	ps_sema_t		*sp;		/* semaphore pointer	*/
 	char		string[30];		/* trace string		*/
 	ps_tp_pair_t	*qpp;			/* tp queue pointer	*/
-	void	free_pair();			/* tp pair sink		*/
+	// void	free_pair();			/* tp pair sink		*/ Note that these are old-style C things
 
 	if(sid < 0)
 		return(BAD_PARAM("sid"));

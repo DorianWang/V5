@@ -135,6 +135,7 @@ extern	ps_table_t	ps_stat_tab;
 
 /* 	Task states and flags						*/
 
+/*
 #define	TASK_FREE		0
 #define	TASK_SUSPENDED		1
 #define	TASK_READY		2
@@ -147,6 +148,7 @@ extern	ps_table_t	ps_stat_tab;
 #define	TASK_SPINNING		9
 #define	TASK_COMPUTING		10
 #define	TASK_BLOCKED		11
+*/
 
 /*	Null values							*/
 

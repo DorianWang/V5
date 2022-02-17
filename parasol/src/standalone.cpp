@@ -26,6 +26,7 @@
 
 #include <para_internals.h>
 #include <para_privates.h>
+#include "config.h"
 #if defined(HAVE_FENV_H)
 #if defined(__GNUC__) && defined(linux)
 #define __USE_GNU
@@ -49,7 +50,7 @@ int main(
 /* Default PARASOL mainline - scans command line for simulation		*/
 /* parameters and flags, and then calls run_parasol to execute the	*/
 /* simulation.  Users may replace main with their own wrapper.		*/
- 
+
 	int	argc,				/* argument count	*/
 	char	*argv[]				/* arguments		*/
 )
@@ -62,7 +63,7 @@ int main(
 	printf("******************************");
 	printf("\n*							");
 	printf("		       *");
-	printf("\n* 			P A R A S O L  (Version %s)   	", 
+	printf("\n* 			P A R A S O L  (Version %s)   	",
 	    VERSION);
 	printf("	       *");
 	printf("\n*							");
@@ -70,15 +71,15 @@ int main(
 	printf("\n******************************************************");
 	printf("**************************\n\n");
 
-	
+
 /* 	Acquire simulation parameters					*/
 
 	switch(argc) {
-	
+
 	case 2:
 		if(strcmp(argv[1], "-t") == 0)
 			flags |= RPF_TRACE;
-		else if(strcmp(argv[1], "-s") == 0) 
+		else if(strcmp(argv[1], "-s") == 0)
 			flags |= RPF_TRACE | RPF_STEP;
 		else if(strcmp(argv[1], "-w") == 0)
 			flags |= RPF_WARNING;
@@ -135,7 +136,7 @@ int main(
 #elif  defined(HAVE_IEEEFP_H) && defined(HAVE_FPSETMASK)
     fpsetmask( FP_X_INV | FP_X_DZ | FP_X_OFL );
 #endif
-	
+
 	ps_run_parasol(duration, seed, flags);
 	if (ps_stat_tab.used && (bs_time < 0.0))
 		ps_stats();

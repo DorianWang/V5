@@ -931,9 +931,9 @@ void cap_handler(ps_task_t *tp);
 
 #define	PRIMARY		0
 #define	REPLY		1
-#define	ACK_TIMEOUT	0x80000000
-#define	SP_REQUEST	0x80000001
-#define SP_CANCEL	0x80000002
+#define	ACK_TIMEOUT	-2147483648 // 0x80000000   It tries to use unsigned int,
+#define	SP_REQUEST	-2147483647 // 0x80000001   but then converts to signed int,
+#define	SP_CANCEL	-2147483646 // 0x80000002   which gives a narrowing warning.
 
 /*	Communication media codes					*/
 
