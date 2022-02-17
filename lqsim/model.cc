@@ -53,9 +53,10 @@
 #include "runlqx.h"		// Coupling here is ugly at the moment
 #include "task.h"
 
-extern "C" {
-    extern void test_all_stacks();
-}
+// No more stacks for now
+//extern "C" {
+//    extern void test_all_stacks();
+//}
 
 int Model::__genesis_task_id = 0;
 Model * Model::__model = nullptr;
@@ -570,7 +571,6 @@ Model::start()
 	mcheck_check_all();
 #endif
 	fprintf( stderr, "%s: ", _input_file_name.c_str() );
-	test_all_stacks();
     }
 
     for ( unsigned i = 1; i <= total_tasks; ++i ) {
