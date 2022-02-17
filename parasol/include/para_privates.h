@@ -59,7 +59,7 @@ LOCAL	void	port_set_surrogate(void *);
 
 /************************************************************************/
 
-LOCAL	void	reaper();
+LOCAL	void	reaper(void*);
 
 /************************************************************************/
 
@@ -1014,7 +1014,7 @@ LOCAL	ps_table_t	ps_node_tab;		/* node table		*/
 LOCAL	ps_table_t	ps_group_tab;		/* group table		*/
 LOCAL	ps_table_t	ps_bus_tab;		/* bus table		*/
 LOCAL	ps_table_t	ps_link_tab;		/* link table		*/
-	ps_table_t	ps_stat_tab;		/* statistics table	*/
+extern	ps_table_t	ps_stat_tab;		/* statistics table	*/ // Need to avoid multiple definitions.
 LOCAL	ps_table_t	ps_para_stat_tab;	/* para stats table	*/
 LOCAL	ps_table_t	ps_lock_tab;		/* lock table		*/
 LOCAL	ps_table_t	ps_sema_tab;		/* semaphore table	*/

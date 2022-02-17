@@ -148,6 +148,9 @@
 #include "para_internals.h"
 #include "para_privates.h"
 #include "para_protos.h"
+
+#include "test_storage.h"
+
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -156,6 +159,8 @@
 #include <strings.h>
 #endif
 #include <setjmp.h>
+
+#include <cstddef>
 
 #define TEMP_STR_SIZE	128
 
@@ -192,6 +197,10 @@ ps_event_t* dummy_event_location = &dummy_event;
 ps_cpu_t dummy_cpu;
 ps_cpu_t* dummy_cpu_location = &dummy_cpu;
 
+ps_table_t	ps_stat_tab; // Hopefully this makes it compile...
+
+TestStorage dump; // Just a global that will try to collect all the calls we need.
+                  // This is my first experiment with the proper stubs.
 
 
 
@@ -3211,11 +3220,10 @@ SYSCALL ps_build_node(
 )
 {
 	long	i, j;				/* loop indices		*/
-	static long	node = 0;				/* node id index	*/
+	long	node;				/* node id index	*/
 	ps_node_t	*np;			/* node pointer		*/
 	char	stat_name[MAX_STRING_LEN];	/* statistics name	*/
 	printf("In ps_build_node making node # %d!\n", node);
-
 	if(ncpu < 1)
 		return(BAD_PARAM("ncpu"));
 	if(speed <= 0.)
@@ -3225,7 +3233,9 @@ SYSCALL ps_build_node(
 	if(discipline < 0 || (discipline > 2 && discipline!=5)) /*5 stand for cfs */
 		return(BAD_PARAM("discipline"));
 
-	return(node++);
+	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf);
+	// ps_open_stat(stat_name, VARIABLE); // Needs more tuning.
+	return(node);
 }
 
 /************************************************************************/
@@ -3491,7 +3501,7 @@ SYSCALL	ps_run_parasol(
 	printf("Before ps_build_node!\n");
 	ps_build_node("PARASOL Node", 1, 1.0, 0.0, PR, FALSE);
 	rid = 1;
-	reaper();
+	reaper(nullptr);
 	printf("After reaper!\n");
 	reaper_port = ps_std_port(rid);
 	ps_resume(rid);
@@ -4049,7 +4059,7 @@ LOCAL  	void	port_set_surrogate(void * arg)
 
 /************************************************************************/
 
-LOCAL	void	reaper()
+LOCAL	void	reaper(void*)
 
 /* Grim reaper task assists suicides by accepting kill requests.  It is */
 /* is the ancestor of all user tasks including genesis which it launches*/
@@ -6604,10 +6614,10 @@ LOCAL	long	get_dss(
 
 	dss = 15*sizeof(double)*sp_delta;
 	if (t_flag) {
-		ps_trsct = stack_corruption_tester (trace_rep);
+		ps_trsct = 1; //stack_corruption_tester (trace_rep); // Function was removed
 		dss += ps_trsct;
 	} else
-		dss += stack_corruption_tester (no_trace_rep);
+		dss += 1; //stack_corruption_tester (no_trace_rep);
 
  	return (dss - dss % sizeof(double));
 }
@@ -8198,7 +8208,7 @@ void print_si(sched_info *si){
 
 void print_rq( ps_cfs_rq_t *rq){
 	printf("rq parameters are:\n");
-	printf("rq address is %lx\n",(long)rq);
+	printf("rq address is %p\n",rq);
 	printf(" fair of rq =%f, nready =%ld \n",rq->fair,rq->nready);
 	printf("rq->exec_time =%f,rq->sched_time =%f \n ", rq->exec_time,rq->sched_time);
 }
