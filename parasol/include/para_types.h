@@ -49,6 +49,7 @@
 #ifndef	_PARA_TYPES
 #define	_PARA_TYPES
 
+#include <cstddef>
 #include <setjmp.h>
 
 /* 	Task states and flags						*/
