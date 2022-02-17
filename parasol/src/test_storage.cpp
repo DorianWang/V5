@@ -5,7 +5,7 @@
 
 
 
-int add_node(const char* name, long ncpu, double speed, double quantum, long discipline, long sf)
+int TestStorage::add_node(const char* name, long ncpu, double speed, double quantum, long discipline, long sf)
 {
    ps_node_t* newNode = new ps_node_t;
    if (newNode == nullptr) throw; // Out of memory, just suicide for now.
