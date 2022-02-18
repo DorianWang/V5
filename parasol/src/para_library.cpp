@@ -5825,7 +5825,7 @@ LOCAL	 void 	event_report(void)
 			case NODE_REPAIR:
 				np = (ps_node_t *) ep->gp;
 				fprintf(stderr, "%4ld | %s\n", nid(np),
-				    np->name);
+				    np->name.c_str());
 				break;
 
 			}
@@ -7085,7 +7085,7 @@ LOCAL	void	set_run_task(
 	 			stat = ts_stat_ptr(hp->ts_tab, task);
 				if (*stat == -1) {
 					sprintf(string, "%s (cpu %ld) task %ld Utilization",
-					   np->name, hid(np,hp), task);
+					   np->name.c_str(), hid(np,hp), task);
 					*stat = ps_open_stat(string, VARIABLE);
 
 /* 	Don't try this at home, we adjust the stat we created to take 	*/
@@ -7120,7 +7120,7 @@ LOCAL	void	set_run_task(
 				if (*stat == -1) {
 					sprintf(string,
 					   "%s task %ld Utilization",
-					   np->name, task);
+					   np->name.c_str(), task);
 					*stat = ps_open_stat(string, VARIABLE);
 
 /* 	Don't try this at home, we adjust the stat we created to take 	*/
