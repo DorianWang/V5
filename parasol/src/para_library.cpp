@@ -5797,14 +5797,14 @@ LOCAL	 void 	event_report(void)
 			case END_BLOCK:
 				tp = ps_task_ptr((size_t)ep->gp);
 				fprintf(stderr, "%4ld | %s\n", (size_t)ep->gp,
-					tp->name);
+					tp->name.c_str());
 				break;
 
 			case END_TRANS:
 				mp = (ps_mess_t *) ep->gp;
 				tp = ps_task_ptr(port_ptr(mp->port)->owner);
 				fprintf(stderr, "%4ld | %s\n",
-				    port_ptr(mp->port)->owner, tp->name);
+				    port_ptr(mp->port)->owner, tp->name.c_str());
 				break;
 
 			case LINK_FAILURE:
@@ -6177,7 +6177,7 @@ void	ts_report(
 		return;
 	if(tp->name.length())
 		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld (%s) %s.",
-		    ps_now, tp->node, tid(tp), tp->name, sp);
+		    ps_now, tp->node, tid(tp), tp->name.c_str(), sp);
 	else
 		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld %s.",
 		    ps_now, tp->node, tid(tp), sp);
@@ -6346,7 +6346,7 @@ LOCAL	void	log_angio_event (
 		return;
 
 	fprintf (angio_file, "\nW %s %ld %ld ! T %s %ld ! %g ! E %s",
-	    dye->base_name, dye->occurence, dye->serialno, tp->name, tp->tsn,
+	    dye->base_name, dye->occurence, dye->serialno, tp->name.c_str(), tp->tsn,
 	    ps_now, event);
 }
 
@@ -8421,14 +8421,14 @@ static void 	print_event(
 	case END_BLOCK:
 		tp = ps_task_ptr((size_t)ep->gp);
 		fprintf(stderr, "%4ld | %s", (size_t)ep->gp,
-			tp->name);
+			tp->name.c_str());
 		break;
 
 	case END_TRANS:
 		mp = (ps_mess_t *) ep->gp;
 		tp = ps_task_ptr(port_ptr(mp->port)->owner);
 		fprintf(stderr, "%4ld | %s",
-		    port_ptr(mp->port)->owner, tp->name);
+		    port_ptr(mp->port)->owner, tp->name.c_str());
 		break;
 
 	case LINK_FAILURE:

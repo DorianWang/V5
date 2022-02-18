@@ -83,6 +83,8 @@ extern int	bad_call_helper(
 
 
 extern	ps_table_t	ps_stat_tab;
+class TestStorage;
+extern TestStorage dump;
 
 /************************************************************************/
 /*                 P A R A S O L   M A C R O S	 &   C O D E S		*/
