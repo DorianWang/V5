@@ -34,6 +34,8 @@
 /*									*/
 /************************************************************************/
 
+
+
 #ifndef _PARA_PRIVATES
 #define _PARA_PRIVATES
 
@@ -42,6 +44,10 @@
 #ifndef LOCAL
 #define	LOCAL static
 #endif /* LOCAL */
+
+#ifndef SYSCALL
+#define	SYSCALL int
+#endif /* SYSCALL */
 
 /************************************************************************/
 /*		Special PARASOL Task Classes				*/

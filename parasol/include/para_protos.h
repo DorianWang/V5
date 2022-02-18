@@ -50,6 +50,9 @@
 #define	_PARA_PROTOS
 
 #include	<para_types.h>
+#include <para_privates.h>
+
+#include "test_storage.h" // The header linkage is now bananas
 
 /* Functions defined here for compiling on Windows NT.			*/
 #if !defined(HAVE_DRAND48)
@@ -83,8 +86,7 @@ extern int	bad_call_helper(
 
 
 extern	ps_table_t	ps_stat_tab;
-class TestStorage;
-extern TestStorage dump;
+//extern TestStorage dump;
 
 /************************************************************************/
 /*                 P A R A S O L   M A C R O S	 &   C O D E S		*/
@@ -180,7 +182,9 @@ extern TestStorage dump;
 #ifndef	FALSE
 #define	FALSE		(0)
 #endif
+#ifdef SYSCALL
 #define	SYSCALL		int
+#endif
 #define	SAMPLE		87264502
 #define	VARIABLE	29382731
 #define RATE		43928290
