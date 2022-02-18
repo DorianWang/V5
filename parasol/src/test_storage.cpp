@@ -71,11 +71,11 @@ int TestStorage::add_node(const char* name, long ncpu, double speed, double quan
       }
    }
    else {
-      NOT_IMPLEMENTED;
+      NOT_IMPLEMENTED_WAR;
    }
 
    if (discipline == CFS){
-      NOT_IMPLEMENTED;
+      NOT_IMPLEMENTED_WAR;
    }
    else {
       nNode->host_rq = nullptr; //NULL_CFSRQ_PTR;

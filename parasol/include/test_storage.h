@@ -12,7 +12,8 @@
 
 #include <exception>
 
-#define NOT_IMPLEMENTED throw NotImplemented(__FILE__, __LINE__);
+#define NOT_IMPLEMENTED_ERR throw NotImplemented(__FILE__, __LINE__);
+#define NOT_IMPLEMENTED_WAR std::cout << "Unimplemented at " << __FILE__ << " line " << __LINE__ << std::endl;
 
 
 /** This class is just to try to restore some of the functionality that parasol had.

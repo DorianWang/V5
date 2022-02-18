@@ -3186,7 +3186,6 @@ SYSCALL ps_build_node(
 	long	node;				/* node id index	*/
 	ps_node_t	*np;			/* node pointer		*/
 	char	stat_name[MAX_STRING_LEN];	/* statistics name	*/
-	printf("In ps_build_node making node # %d!\n", node);
 	if(ncpu < 1)
 		return(BAD_PARAM("ncpu"));
 	if(speed <= 0.)
@@ -3197,6 +3196,7 @@ SYSCALL ps_build_node(
 		return(BAD_PARAM("discipline"));
 
 	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf);
+	printf("ps_build_node finished making node # %d!\n", node);
 	// ps_open_stat(stat_name, VARIABLE); // Needs more tuning.
 	return(node);
 }
