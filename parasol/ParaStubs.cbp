@@ -13,6 +13,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-DSTANDALONE_TESTING" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -20,7 +21,9 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="-Wall" />
+			<Add option="-std=c11" />
+			<Add directory="include" />
+			<Add directory="C:/Users/Admin/Documents/GitHub/V5/parasol/" />
 		</Compiler>
 		<Unit filename="include/ansidecl.h" />
 		<Unit filename="include/carrier.h" />
@@ -39,6 +42,7 @@
 		<Unit filename="include/spinlock.h" />
 		<Unit filename="include/statistic.h" />
 		<Unit filename="include/task.h" />
+		<Unit filename="include/test_storage.h" />
 		<Unit filename="src/carrier.cc" />
 		<Unit filename="src/drand48.c">
 			<Option compilerVar="CC" />
@@ -46,17 +50,14 @@
 		<Unit filename="src/genesis.cc" />
 		<Unit filename="src/node.cc" />
 		<Unit filename="src/para_entity.cc" />
-		<Unit filename="src/para_library.c">
-			<Option compilerVar="CC" />
-		</Unit>
+		<Unit filename="src/para_library.cpp" />
 		<Unit filename="src/port.cc" />
 		<Unit filename="src/semaphore.cc" />
 		<Unit filename="src/spinlock.cc" />
-		<Unit filename="src/standalone.c">
-			<Option compilerVar="CC" />
-		</Unit>
+		<Unit filename="src/standalone.cpp" />
 		<Unit filename="src/statistic.cc" />
 		<Unit filename="src/task.cc" />
+		<Unit filename="src/test_storage.cpp" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>

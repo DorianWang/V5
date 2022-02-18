@@ -2672,7 +2672,6 @@ SYSCALL	ps_open_stat(
 	long	type				/* type of statistic	*/
 )
 {
-	ps_stat_t	*sp;			/* statistic pointer	*/
 	long	stat;				/* statistic index	*/
 	//printf("In ps_open_stat\n");
 
@@ -2680,35 +2679,8 @@ SYSCALL	ps_open_stat(
 		return(BAD_CALL("Doesn't work once block stats is in effect"));
 	if(type != SAMPLE && type != VARIABLE && type != RATE)
 		return(BAD_PARAM("type"));
-	//if((stat = get_table_entry(&ps_stat_tab)) == SYSERR)
-	//	return(OTHER_ERR("growing statistics table"));
 
-	sp = stat_ptr(stat);
-	//printf("After get stat ptr\n");
-
-	if(!(sp->name = (char *) malloc(strlen(name) + 1)))
-		ps_abort("Insufficient memory");
-	strcpy(sp->name, name);
-	sp->resid = 0.0;
-	switch (sp->type = type) {
-
-	case SAMPLE:
-		sp->values.sam.count = 0;
-		sp->values.sam.sum = 0.0;
-		break;
-
-	case VARIABLE:
-		sp->values.var.start = sp->values.var.old_time = ps_now;
-		sp->values.var.old_value = 0.0;
-		sp->values.var.integral = 0.0;
-		break;
-
-	case RATE:
-		sp->values.rat.start = ps_now;
-		sp->values.rat.count = 0;
-		break;
-
-	}
+	stat = dump.add_stat(name, type);
 	return(stat);
 }
 
@@ -2981,25 +2953,20 @@ void	ps_stats(void)
 	long	stat;				/* statistic index	*/
 	ps_stat_t	*sp;			/* statistic pointer	*/
 	char	name[40];			/* statistic name	*/
-	void *	copy;				/* working copy		*/
+	std::vector <ps_stat_t*>	wcp;				/* working copy		*/
 	long	bytes;				/* size of table	*/
 
 /*	Make a sorted working copy so that we can prlong the stats in	*/
 /*	sorted order but don't invalidate any id's.			*/
 
-	bytes = ps_stat_tab.used * ps_stat_tab.entry_size;
-	if (!(copy = malloc(bytes)))
-		ps_abort("Insufficient Memory");
-	memcpy (copy, (void*)ps_stat_tab.base, bytes);
-	qsort (copy, ps_stat_tab.used, ps_stat_tab.entry_size,
-	    (compar)stat_compare);
+	wcp = dump.sorted_stats();
 
 	printf("\n\nSimulation statistics for time = %G.\n", ps_now);
 	printf("\n Name\t\t\t\t\tType\t  Mean\tObs(#|interval)\n\n");
 
-	for(stat = 0; stat < ps_stat_tab.used; stat++) {
-	  sp = (ps_stat_t*)((char *)copy + stat * ps_stat_tab.entry_size);
-		padstr(name, sp->name, 38);
+	for(stat = 0; stat < wcp.size(); stat++) {
+		sp = wcp[stat];
+		padstr(name, sp->name.c_str(), 38);
 		printf("%s", name);
 
 		switch(sp->type) {
@@ -3044,10 +3011,6 @@ void	ps_stats(void)
 		}
 	}
 	printf("\n\n");
-
-
-/*	Cleanup our working copy					*/
-	free (copy);
 }
 
 
@@ -3899,7 +3862,7 @@ double	blocked_stat_outputer(long stat)
 	sp = stat_ptr(stat);
 	ps = sum + stat;
 	pss = sumsq + stat;
-	padstr(name, sp->name, 38);
+	padstr(name, sp->name.c_str(), 38);
 	printf("%s", name);
 	mean = *ps/nb;
 	stddev = sqrt(fabs((*pss - (*ps)*(*ps)/nb)/(nb*(nb-1))));
@@ -5132,13 +5095,12 @@ LOCAL	void	find_ready(
 		btp = ctp;
 		task = ctp->next;
 		}
-   dummy_node.cpu = dummy_cpu_location; // Even more jank :D
-   hp = dummy_cpu_location;
-   printf("task, cpu pointer, ctp are %d, %x, %x\n", task, np->cpu[0], ctp);
-   // Just assume no tasks available since I broke everything.
+	//dummy_node.cpu = dummy_cpu_location; // Even more jank :D
+	hp = dummy_cpu_location;
+	printf("task, cpu pointer, ctp are %d, %x, %x\n", task, np->cpu[0], ctp);
+	// Just assume no tasks available since I broke everything.
 	if(0){
-    //(task != NULL_TASK && (np->cpu[0].scheduler == NULL_TASK || ctp->priority > MAX_PRIORITY))) {	/* Ready task found	*/
-
+	//(task != NULL_TASK && (np->cpu[0].scheduler == NULL_TASK || ctp->priority > MAX_PRIORITY))) {	/* Ready task found	*/
 	    	/* Clear the premption tag and add the current to the total preemption time. Tao*/
 	    	if(ctp->pt_tag == 1)
 	    	{	ctp->pt_tag = 0;
@@ -5900,7 +5862,7 @@ LOCAL 	void 	hard_report(void)
 	"-------------------------------------------------------------------\n");
 	for(node = 0; node < ps_node_tab.used; node++) {
 		np = node_ptr(node);
-		padstr(pstring, np->name, 20);
+		padstr(pstring, np->name.c_str(), 20);
 		fprintf(stderr,"%3ld | %s |     %3ld    ||", node,
 		    pstring, np->ncpu - np->nfree);
 		if((task = np->rtrq) != NULL_TASK) {
@@ -7303,7 +7265,7 @@ LOCAL	int	stat_compare(
 	ps_stat_t 	*s2
 )
 {
-	return strcmp(s1->name, s2->name);
+	return s1->name.compare(s2->name);
 }
 
 /************************************************************************/

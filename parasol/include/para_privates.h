@@ -825,7 +825,7 @@ void cap_handler(ps_task_t *tp);
 /*	Macros								*/
 
 #define	nid(np)	((((char *)(np))-ps_node_tab.base)/ps_node_tab.entry_size)
-#define	hid(np, hp) (((ps_cpu_t *)hp) - (ps_cpu_t *)(((ps_node_t *)np)->cpu))
+#define	hid(np, hp) (((ps_cpu_t *)hp) - (ps_cpu_t *)(((ps_node_t *)np)->cpu.data()))
 #define	bid(bp)	((((char *)(bp))-ps_bus_tab.base)/ps_bus_tab.entry_size)
 #define	lid(lp)	((((char *)(lp))-ps_link_tab.base)/ps_link_tab.entry_size)
 #define	pid(pp)	((((char *)(pp))-ps_port_tab.base)/ps_port_tab.entry_size)

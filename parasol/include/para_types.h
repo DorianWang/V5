@@ -52,6 +52,13 @@
 #include <cstddef>
 #include <setjmp.h>
 
+// I'll replace these since it isn't too hard to do so and it cleans up the warnings.
+// Still isn't really safe and standard C++ since it'll have lots of raw memory accesses.
+#include <vector>
+#include <string>
+
+// Note that classes and structs are equivalent except that struct members are default public.
+
 /* 	Task states and flags						*/
 
 enum ps_task_state_t {
@@ -155,6 +162,17 @@ struct	ps_comm_t {			/* communication struct	*/
 /************************************************************************/
 
 struct ps_cpu_t {			/* cpu processor struct	*/
+	ps_cpu_t(){
+		state = 0; //CPU_IDLE;
+		run_task = -1; //NULL_TASK;
+		ts_tab = nullptr;
+		catcher = -1; //NULL_TASK;
+		scheduler = -1; //NULL_TASK;
+		last_task = -1; //NULL_TASK;
+		stat = -1; //NULL_STAT;
+		port_n = 0;
+		group_rq = nullptr; //NULL_CFSRQ_PTR;  /* pointer of group rq */
+	}; // Default constructor to avoid big for loops.
 	long	state;				/* cpu state		*/
 	size_t	run_task;			/* running task	index	*/
 	long	stat;				/* statistics index	*/
@@ -200,11 +218,12 @@ struct	ps_lock_t {			/* lock struct		*/
 
 /************************************************************************/
 
-struct	ps_node_t {			/* processor node struct*/
-	char	*name;				/* node name		*/
+class ps_node_t {			/* processor node struct*/
+public:
+	std::string name;				/* node name		*/
 	long	ncpu;				/* # of cpu's		*/
 	long	nfree;				/* # of free cpu's	*/
-	ps_cpu_t	*cpu;			/* array of cpu's	*/
+	std::vector <ps_cpu_t> cpu;		/* array of cpus, owned by node so not pointers	*/
 	long	rtrq;				/* ready to run queue	*/
 	double	speed;				/* cpu speed factor	*/
 	double	quantum;			/* time slice quantum	*/
@@ -261,7 +280,7 @@ struct	ps_sema_t {			/* semaphore struct	*/
 /************************************************************************/
 
 struct	ps_stat_t {			/* statistics struct	*/
-	char	*name;				/* statistic name	*/
+	std::string	name;				/* statistic name	*/
 	double	resid;				/* non-rounding resid	*/
 	union {
 	    struct {
