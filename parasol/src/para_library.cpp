@@ -2928,7 +2928,7 @@ SYSCALL	ps_record_stat2(
 /************************************************************************/
 
 #if !defined(__WINNT__) && !defined(__CYGWIN__)
-static inline
+inline
 #endif
 SYSCALL  ps_record_stat(
 /* Records a statistic sample or value.					*/
@@ -2986,7 +2986,7 @@ SYSCALL  ps_record_stat(
 /************************************************************************/
 
 #if !defined(__WINNT__) && !defined(__CYGWIN__)
-static inline
+inline
 #endif
 SYSCALL	ps_record_stat2(
 
