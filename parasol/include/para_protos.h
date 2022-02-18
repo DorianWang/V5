@@ -97,7 +97,7 @@ extern TestStorage dump;
 #define	ps_random		(drand48())
 #define	ps_uniform(low, high)   ((low) + ((high) - (low))*drand48())
 
-#define	ps_my_name		(ps_htp->name)
+#define	ps_my_name		(ps_htp->name.c_str())
 #define	ps_my_node		(ps_htp->node)
 #define	ps_my_host		(ps_htp->uhost)
 #define	ps_my_priority		(ps_htp->upriority)

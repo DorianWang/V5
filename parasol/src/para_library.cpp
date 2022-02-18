@@ -1211,7 +1211,7 @@ SYSCALL	ps_allocate_shared_port(
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	long	dispatcher;			/* dispatcher task id	*/
 	long	spid;				/* shared port id	*/
-	sprintf(string, "%s - Shared Port Dispatcher", ps_htp->name);
+	sprintf(string, "%s - Shared Port Dispatcher", ps_htp->name.c_str());
 	if(ps_resume(dispatcher = ps_create(string, ps_htp->node, ps_htp->host,
 	    shared_port_dispatcher, MAX_PRIORITY)) == SYSERR)
 		return(OTHER_ERR("creating dispatcher"));
@@ -1474,7 +1474,7 @@ SYSCALL	ps_join_port_set(
 		return(BAD_CALL("Caller is not owner"));
 	if(port == ps_my_std_port)
 		return(BAD_CALL("Port is caller's standard port"));
-	sprintf(string,"%s Surrogate", ps_htp->name);
+	sprintf(string,"%s Surrogate", ps_htp->name.c_str());
 	if((surrogate = ps_create(string, ps_htp->node, ps_htp->host,
 	    port_set_surrogate, MAX_PRIORITY)) == SYSERR)
 		return(OTHER_ERR("creating port set surrogate task"));
@@ -1999,7 +1999,7 @@ SYSCALL	ps_receive_shared(
 	if(port_ptr(port)->state != PORT_SHARED)
 		return(BAD_PARAM("port"));
 	if(ps_htp->blind_port == NULL_PORT) {
-		sprintf(name, "%s - Blind Port", ps_htp->name);
+		sprintf(name, "%s - Blind Port", ps_htp->name.c_str());
 		if((ps_htp->blind_port = ps_allocate_port(name, ps_myself))
 		    == SYSERR) {
 			ps_htp->blind_port = NULL_PORT;
