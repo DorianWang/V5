@@ -106,7 +106,7 @@ extern	ps_table_t	ps_stat_tab;
 
 #define	ps_myself ((((char *)ps_htp)-ps_task_tab.base)/ps_task_tab.entry_size)
 
-#define	ps_task_name(task)	(ps_task_ptr((task))->name)
+#define	ps_task_name(task)	(ps_task_ptr((task))->name.c_str())
 #define	ps_task_state(task)	(ps_task_ptr((task))->state)
 #define	ps_task_node(task)	(ps_task_ptr((task))->node)
 #define	ps_task_host(task)	(ps_task_ptr((task))->uhost)
@@ -117,8 +117,8 @@ extern	ps_table_t	ps_stat_tab;
 #define ps_end_compute_time(task)  (ps_task_ptr((task))->end_compute_time) /* tomari quorum */
 #define ps_preempted_time(task)	(ps_task_ptr((task))->pt_sum)	/*Added by Tao for task preemption time*/
 
-#define	ps_task_ptr(id)	((ps_task_t*)(dummy_task_location))
-#define	stat_ptr(id)	((ps_stat_t*)(dummy_stat_location))
+#define	ps_task_ptr(id)	((ps_task_t*)(dump.get_task(id)))
+#define	stat_ptr(id)	((ps_stat_t*)(dump.get_stat(id)))
 #define ps_declare_glocal(set, type) (ps_allocate_glocal((set), sizeof(type)))
 #define ps_glocal(set, index, type) (*((type*)ps_glocal_value((set),(index))))
 

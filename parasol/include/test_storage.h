@@ -4,6 +4,7 @@
 
 #include	"para_types.h"
 #include "para_protos.h"
+#include "para_privates.h"
 
 #include <vector>
 #include <string>
@@ -26,15 +27,20 @@ public:
 
    int add_stat(const std::string& name, long type);
    int add_stat(const char* name, long type);
-   int get_stat(size_t index);
+   ps_stat_t* get_stat(size_t index);
    int rem_stat(size_t index);
 
    std::vector <ps_stat_t*> sorted_stats(); // Sorted by name, analogue of qsort(..., stat_compare)
 
 
    int add_node(const char* name, long ncpu, double speed, double quantum, long discipline, long sf);
-   int get_node(size_t index);
+   ps_node_t* get_node(size_t index);
    int rem_node(size_t index);
+
+   int add_task(const char* name, long node, long host, void (*code)(void*), long priority, long group = -1, double stackscale = 1.0); // ps_create2()
+   ps_task_t* get_task(size_t index);
+   int rem_task(size_t index);
+
 
    void print_nodes();
 
@@ -48,7 +54,7 @@ private:
    // Shared pointers might be better, but this hopefully isn't the final product.
    std::vector <ps_stat_t*> stats;
    std::vector <ps_node_t*> nodes;
-
+   std::vector <ps_task_t*> tasks;
 
 };
 

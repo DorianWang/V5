@@ -304,7 +304,7 @@ struct	ps_stat_t {			/* statistics struct	*/
 /************************************************************************/
 
 struct  ps_task_t {			/* task struct		*/
-	char	*name;				/* task name		*/
+	std::string	name;				/* task name		*/
 	ps_task_state_t state;			/* task state		*/
 	long	node;				/* node location	*/
 	long	uhost;				/* user cpu index	*/

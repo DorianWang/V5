@@ -629,7 +629,7 @@ SYSCALL	ps_kill(
 		remove_event(tp->rtoep);
 		tp->qep = tp->tep = tp->rtoep = NULL_EVENT_PTR;
 		SET_TASK_STATE(tp, TASK_FREE);
- 		free(tp->name);
+ 		//free(tp->name);
 		release_locks(tp);
 		release_ports(tp);
 		free_table_entry(&ps_task_tab, task);
@@ -5745,7 +5745,7 @@ LOCAL	void	display_breakpoints(void)
 			if((tp = ps_task_ptr(i))->state != TASK_FREE
 			    && tp->tbp != -2) {
 			    	const char * p2;
-				padstr(p1, tp->name, 20);
+				padstr(p1, tp->name.c_str(), 20);
 				if(tp->tbp == -1)
 					p2 = "ANYSTATE";
 				else
@@ -5870,7 +5870,7 @@ LOCAL 	void 	hard_report(void)
 				if(task != np->rtrq)
 					fprintf(stderr,
 	"                                        ||");
-				padstr(pstring, (tp = ps_task_ptr(task))->name,
+				padstr(pstring, (tp = ps_task_ptr(task))->name.c_str(),
 				    20);
 				fprintf(stderr," %4ld | %s\n", task,
 				    pstring);
@@ -6004,7 +6004,7 @@ LOCAL 	void 	soft_report(void)
 "-------------------------------------------------------------------------\n");
 	for(task = 0; task < ps_task_tab.tab_size; task++) {
 		if((tp = ps_task_ptr(task))->state != TASK_FREE) {
-			padstr(pstring, tp->name, 20);
+			padstr(pstring, tp->name.c_str(), 20);
 			fprintf(stderr, "%3ld | %s |%4ld  |", task, pstring,
 			    tp->node);
 			switch(tp->state) {
@@ -6175,7 +6175,7 @@ void	ts_report(
 	    || tp->code == shared_port_dispatcher
 	    || tp->code == block_stats_collector )
 		return;
-	if(strlen(tp->name))
+	if(tp->name.length())
 		fprintf(stderr, "\nTime: %.8G; Node: %ld; Task %ld (%s) %s.",
 		    ps_now, tp->node, tid(tp), tp->name, sp);
 	else
@@ -7244,7 +7244,7 @@ LOCAL	void	sp_winder(
 LOCAL	long sp_winder()
 {
     static char *addr = 0;
-    auto char dummy;
+	char dummy;
     if (addr == 0) {
 	addr = &dummy;
 	return sp_winder();

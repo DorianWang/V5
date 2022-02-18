@@ -37,6 +37,18 @@ int TestStorage::add_stat(const std::string& name, long type)
    return stats.size() - 1;
 }
 
+ps_stat_t* TestStorage::get_stat(size_t index)
+{
+   if (index < stats.size()){
+      return stats[index];
+   }
+   else{
+      throw std::out_of_range("get_stat(index) is out of range");
+   }
+}
+
+
+
 std::vector <ps_stat_t*> TestStorage::sorted_stats()
 {
    std::vector <ps_stat_t*> sorted = stats;
@@ -84,6 +96,18 @@ int TestStorage::add_node(const char* name, long ncpu, double speed, double quan
    return nodes.size() - 1;
 }
 
+ps_node_t* TestStorage::get_node(size_t index)
+{
+   if (index < nodes.size()){
+      return nodes[index];
+   }
+   else{
+      throw std::out_of_range("get_node(index) is out of range");
+   }
+}
+
+
+
 
 void TestStorage::print_nodes()
 {
@@ -93,6 +117,51 @@ void TestStorage::print_nodes()
       }
    }
    std::cout << "Total size of nodes vector: " << nodes.size() << std::endl;
+}
+
+int TestStorage::add_task(const char* name, long node, long host, void (*code)(void*), long priority, long group, double stackscale){
+   ps_task_t* nTask = new ps_task_t;
+   long port = 0; // ps_allocate_port("Broadcast", task);
+
+
+   nTask->name = std::string(name);
+   nTask->state = TASK_SUSPENDED; nTask->node = node; nTask->port_list = -1 ; //NULL_PORT
+   nTask->code = code; nTask->host = nTask->uhost = host;
+   nTask->hp = nullptr; // NULL_HOST_PTR;
+   nTask->stack_base = nullptr; // This is the stack pointer which I'll leave alone
+   nTask->stack_limit = 0;
+   nTask->priority = nTask->upriority = priority;
+   nTask->next = -1; // NULL_TASK;
+   nTask->parent = 0;
+   nTask->sibling = -1; // NULL_TASK;
+   nTask->son = -1; // NULL_TASK;
+   nTask->bport = port; nTask->blind_port = -1; nTask->wport = -1; // NULL_PORT;
+   nTask->lock_list = -1; nTask->spin_lock = -1; // NULL_LOCK;
+   nTask->tep = nTask->qep = nTask->rtoep = nullptr; // NULL_EVENT_PTR;
+   nTask->rct = 0.0; nTask->qx = FALSE; nTask->tsn = task_count++;
+
+   if (group >= 0) {NOT_IMPLEMENTED_WAR;};
+   nTask->group = -1;
+   nTask->group_id = -1;
+   nTask->si = nullptr; // NULL_SCHED_PTR;
+
+   // Ignore cfs check for now
+
+   nTask->sched_time = ps_now; nTask->tbp = -2;
+   tasks.push_back(nTask);
+   return tasks.size() - 1;
+
+} // ps_create2()
+
+
+ps_task_t* TestStorage::get_task(size_t index)
+{
+   if (index < tasks.size()){
+      return tasks[index];
+   }
+   else{
+      throw std::out_of_range("get_task(index) is out of range");
+   }
 }
 
 
