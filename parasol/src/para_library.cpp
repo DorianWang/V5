@@ -2683,7 +2683,7 @@ SYSCALL	ps_open_stat(
 	if(type != SAMPLE && type != VARIABLE && type != RATE)
 		return(BAD_PARAM("type"));
 
-	stat = dump.add_stat(name, type);
+	stat = dump.add_stat(name, type, ps_now);
 	return(stat);
 }
 
@@ -3319,7 +3319,7 @@ SYSCALL ps_build_node(
 	if(discipline < 0 || (discipline > 2 && discipline!=5)) /*5 stand for cfs */
 		return(BAD_PARAM("discipline"));
 
-	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf);
+	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf, ps_now);
 	printf("ps_build_node finished making node # %d!\n", node);
 	// ps_open_stat(stat_name, VARIABLE); // Needs more tuning.
 	return(node);

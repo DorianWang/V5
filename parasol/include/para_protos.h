@@ -86,7 +86,7 @@ extern int	bad_call_helper(
 
 
 extern	ps_table_t	ps_stat_tab;
-//extern TestStorage dump;
+extern	TestStorage	dump;
 
 /************************************************************************/
 /*                 P A R A S O L   M A C R O S	 &   C O D E S		*/
@@ -1221,6 +1221,22 @@ void	ts_report(
 
 	ps_task_t	*tp,			/* task pointer		*/
 	const	char	*sp			/* string pointer	*/
+);
+
+
+SYSCALL  ps_record_stat(
+/* Records a statistic sample or value.					*/
+
+	long	stat,				/* statistics index	*/
+	double	value				/* sample | value	*/
+);
+SYSCALL	ps_record_stat2(
+
+/* Records a statistic sample or value.					*/
+
+	long	stat,				/* statistic index	*/
+	double	value,				/* sample | value	*/
+	double  start				/* Start time.		*/
 );
 
 /************************************************************************/
