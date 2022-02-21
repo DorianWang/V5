@@ -296,7 +296,6 @@ unsigned        first_run = TRUE;
 /*		Task Management Related SYSCALLS			*/
 /************************************************************************/
 
-SYSCALL ps_record_stat(long stat, double value);
 
 
 SYSCALL	ps_adjust_priority(
@@ -2928,15 +2927,12 @@ SYSCALL	ps_record_stat2(
 /************************************************************************/
 
 #if !defined(__WINNT__) && !defined(__CYGWIN__)
-inline
-#endif
 SYSCALL  ps_record_stat(
 /* Records a statistic sample or value.					*/
 
 	long	stat,				/* statistics index	*/
 	double	value				/* sample | value	*/
 )
-#if !defined(__WINNT__) && !defined(__CYGWIN__)
 {
 	ps_stat_t	*sp;			/* statistics pointer	*/
 	double 	temp;				/* temporary		*/
@@ -2986,8 +2982,6 @@ SYSCALL  ps_record_stat(
 /************************************************************************/
 
 #if !defined(__WINNT__) && !defined(__CYGWIN__)
-inline
-#endif
 SYSCALL	ps_record_stat2(
 
 /* Records a statistic sample or value.					*/
@@ -2996,7 +2990,6 @@ SYSCALL	ps_record_stat2(
 	double	value,				/* sample | value	*/
 	double  start				/* Start time.		*/
 )
-#if !defined(__WINNT__) && !defined(__CYGWIN__)
 {
 	ps_stat_t	*sp;			/* statistics pointer	*/
 	double 	temp;				/* temporary		*/
