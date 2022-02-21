@@ -256,6 +256,7 @@ Real_Instance::create_task( Task * cp, const char * task_name )
    printf("Inside create_task()\n");
    printf("Task pointer is %x and dummy pointer is %x\n", (size_t) cp, (size_t) dummy_task_location);
     if ( cp->group_id() != -1 ) {
+		printf("ps_create_group will be called, from Real_Instance::create_task\n");
 	return ps_create_group( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority(), cp->group_id() );
     } else {
 	return ps_create( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority() );
