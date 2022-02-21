@@ -5465,7 +5465,7 @@ LOCAL	void	ready(
       printf("True\n");
 		while(task != NULL_TASK) {
 			btp = ps_task_ptr(task);
-         if (btp == dummy_task_location) break;
+         if (true) break;
 			task = btp->next;
 		}
 	}
