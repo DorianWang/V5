@@ -5216,7 +5216,7 @@ LOCAL	void	find_ready(
 		}
 	//dummy_node.cpu = dummy_cpu_location; // Even more jank :D
 	hp = dummy_cpu_location;
-	printf("task, cpu pointer, ctp are %d, %x, %x\n", task, np->cpu[0], ctp);
+	printf("task, node, ctp are %d, %x, %x\n", task, np, ctp);
 	// Just assume no tasks available since I broke everything.
 	if(0){
 	//(task != NULL_TASK && (np->cpu[0].scheduler == NULL_TASK || ctp->priority > MAX_PRIORITY))) {	/* Ready task found	*/
