@@ -511,7 +511,9 @@ SYSCALL	ps_create2(
 	sched_info 	*si;			/* sched_info pointer	*/
 
 	printf("Executing ps_create2 with task name: %s and task ID %d\n", name, task);
-	return(task++);
+	task = dump.add_task(name, node, host, code, priority, ps_now, group, stackscale);
+
+	return(task);
 }
 
 

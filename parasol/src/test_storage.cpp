@@ -123,7 +123,6 @@ int TestStorage::add_task(const char* name, long node, long host, void (*code)(v
    ps_task_t* nTask = new ps_task_t;
    long port = 0; // ps_allocate_port("Broadcast", task);
 
-
    nTask->name = std::string(name);
    nTask->state = TASK_SUSPENDED; nTask->node = node; nTask->port_list = -1 ; //NULL_PORT
    nTask->code = code; nTask->host = nTask->uhost = host;
