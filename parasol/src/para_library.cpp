@@ -4158,6 +4158,7 @@ LOCAL	void	reaper(void*)
 	printf("Starting ps_genesis!\n");
 	ps_genesis((void*) 0);
 	printf("After ps_genesis!\n");
+	dump.print_all_stored();
    return;
 }
 

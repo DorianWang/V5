@@ -41,10 +41,17 @@ public:
    ps_task_t* get_task(size_t index);
    int rem_task(size_t index);
 
+   // Constant getters
+   const ps_stat_t* get_stat(size_t index) const;
+   const ps_node_t* get_node(size_t index) const;
+   const ps_task_t* get_task(size_t index) const;
 
-   void print_nodes();
+   static void print_stat(const ps_stat_t* in);
+   static void print_cpu(const ps_cpu_t* in, const TestStorage* db = nullptr); // Used for print_node
+   static void print_node(const ps_node_t* in, const TestStorage* db = nullptr);
+   static void print_task(const ps_task_t* in, const TestStorage* db = nullptr);
 
-
+   void print_all_stored() const;
 
 
 
