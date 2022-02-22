@@ -319,7 +319,57 @@ void TestStorage::print_node(const ps_node_t* in, const TestStorage* db)
    std::cout << in->sf << " " << in->build_time << " " << in->ngroup << "\n";
 }
 
-void TestStorage::print_task(const ps_task_t* in, const TestStorage* db){return;};
+void TestStorage::print_task(const ps_task_t* in, const TestStorage* db)
+{
+   std::cout << in->name;
+   switch(in->state){
+   case TASK_FREE:
+      std::cout << " TASK_FREE ";
+      break;
+   case TASK_SUSPENDED:
+      std::cout << " TASK_SUSPENDED ";
+      break;
+   case TASK_READY:
+      std::cout << " TASK_READY ";
+      break;
+   case TASK_HOT:
+      std::cout << " TASK_HOT ";
+      break;
+   case TASK_RECEIVING:
+      std::cout << " TASK_RECEIVING ";
+      break;
+   case TASK_SLEEPING:
+      std::cout << " TASK_SLEEPING ";
+      break;
+   case TASK_SYNC:
+      std::cout << " TASK_SYNC ";
+      break;
+   case TASK_SYNC_SUSPEND:
+      std::cout << " TASK_SYNC_SUSPEND ";
+      break;
+   case TASK_SYNC_FREE:
+      std::cout << " TASK_SYNC_FREE ";
+      break;
+   case TASK_SPINNING:
+      std::cout << " TASK_SPINNING ";
+      break;
+   case TASK_COMPUTING:
+      std::cout << " TASK_COMPUTING ";
+      break;
+   case TASK_BLOCKED:
+      std::cout << " TASK_BLOCKED ";
+      break;
+   default:
+      std::cout << " UNKNOWN ";
+      break;
+   }
+
+   // Skipping ones I haven't stubbed yet.
+   std::cout << in->node << " " << in->host  << " " << in->uhost << " " << in->upriority
+             << " " << in->priority << " " << in->parent << " " << in->son << "\n";
+
+   return;
+}
 
 void TestStorage::print_all_stored() const{
    std::cout << "Printing " << stats.size() << " stats...\n";
@@ -339,16 +389,16 @@ void TestStorage::print_all_stored() const{
       }
    }
 
-   /*
+
    std::cout << std::endl << "Printing " << tasks.size() << " tasks...\n";
 
-      for (size_t i = 0; i < nodes.size(); i++){
-      if (nodes[i] != nullptr){
+      for (size_t i = 0; i < tasks.size(); i++){
+      if (tasks[i] != nullptr){
          std::cout << i << ": ";
-         print_node(nodes[i]);
+         print_task(tasks[i]);
       }
    }
-   */
+
 
    // Flush in case the next operation is really mean and doesn't let it write to console.
    std::cout << std::endl;
