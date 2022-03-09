@@ -48,6 +48,9 @@ AM_CONDITIONAL([HAVE_PS2PDF], test -n "$XPS2PDF")
 AC_CHECK_PROGS(XSVN, svn)
 AM_CONDITIONAL([HAVE_SVN], test -n "$XSVN")
 
+AC_CHECK_PROGS(XFIG2DEV, fig2dev)
+AM_CONDITIONAL([HAVE_FIG2DEV], test -n "$XFIG2DEV")
+
 AC_ARG_ENABLE([latex-doc],
     [AS_HELP_STRING([--disable-latex-doc], [disable building the PDF
     documentation from LaTeX source])],

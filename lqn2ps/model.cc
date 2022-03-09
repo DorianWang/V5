@@ -1,6 +1,6 @@
 /* model.cc	-- Greg Franks Mon Feb  3 2003
  *
- * $Id: model.cc 15434 2022-02-09 00:28:27Z greg $
+ * $Id: model.cc 15434 2022-02-09 22:31:36Z greg $
  *
  * Load, slice, and dice the lqn model.
  */
