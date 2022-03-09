@@ -189,16 +189,6 @@ long TestStorage::get_task_index(const ps_task_t* in)
    return -1; // Not found?
 }
 
-long TestStorage::get_task_index(const ps_task_t* in)
-{
-   for (size_t i = 0; i < tasks.size(); i++){
-      if (tasks[i] == in){
-         return i;
-      }
-   }
-   return -1; // Not found?
-}
-
 
 /******************************************************/
 /****************** Constant Getters ******************/
