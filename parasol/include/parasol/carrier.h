@@ -1,7 +1,6 @@
-// $Id: node.h 15456 2022-03-09 15:06:35Z greg $
+// $Id: carrier.h 15456 2022-03-09 15:06:35Z greg $
 //=======================================================================
-//	node.h - PS_AbstractNode, PS_UserNode and PS_SystemNode class
-//		 declarations.
+//	carrier.h - PS_Carrier, PS_Link and PS_Bus class declarations.
 //
 //	Copyright (C) 1995 School of Computer Science,
 //		Carleton University, Ottawa, Ont., Canada
@@ -27,44 +26,63 @@
 //	Created: 27/06/95 (PRM)
 //
 //=======================================================================
+#ifndef __CARRIER_H
+#define __CARRIER_H
+
+#ifndef __PARA_ENTITY_H
+#include <parasol/para_entity.h>
+#endif //__PARA_ENTITY_H
+
 #ifndef __NODE_H
-#define __NODE_H
-
-#ifndef __PARASOL_ENTITY_H
-#include <para_entity.h>
-#endif //__PARASOL_ENTITY_H
-
-//=======================================================================
-// class:	PS_AbstractNode
-// description:	The base class from which other node classes inherit.
-//=======================================================================
-class PS_AbstractNode : public PS_ParasolEntity {
-protected:
-	PS_AbstractNode(long nid) : PS_ParasolEntity(nid) {};
-
-public:
-	long ReadyToRun() const
-	    { return ps_ready_queue(id(), 0, NULL); };
-	long IdleCPUs() const
-	    { return ps_idle_cpu(id()); };
-};
-
-//=======================================================================
-// class:	PS_UserNode
-// description:	The base class from which user nodes inherit.
-//=======================================================================
-class PS_UserNode : public PS_AbstractNode {
-public:
-	PS_UserNode(const char *name, long ncpus, double speed, double quantum,
-	    long discipline, int stat_flags);
-};
-
-//=======================================================================
-// class:	PS_SystemNode
-// description:	The base class from which system nodes inherit. //=======================================================================
-class PS_SystemNode : public PS_AbstractNode {
-protected:
-	PS_SystemNode(long nid) : PS_AbstractNode(nid) {};
-};
-
+#include <parasol/node.h>
 #endif //__NODE_H
+
+#ifndef __PORT_H
+#include <parasol/port.h>
+#endif //__PORT_H
+
+//=======================================================================
+// class:	Carrier
+// description:	Encapsulates Parasol message passing mediums.
+//=======================================================================
+class PS_AbstractCarrier : public PS_ParasolEntity {
+protected:
+	PS_AbstractCarrier(long cid) : PS_ParasolEntity(cid) {};
+ 
+public:
+	virtual SYSCALL Send(const PS_Port& port, long type, int size, char *text,
+	    long ap) const = 0;
+}; 
+
+
+//=======================================================================
+// class:	PS_Link
+// description:	Encapsulates Parasol links.
+//=======================================================================
+class PS_Link : public PS_AbstractCarrier {
+public:
+	PS_Link(const char *name, const PS_AbstractNode& src, 
+	    const PS_AbstractNode& dest, double rate, long stat_flag);
+	virtual SYSCALL Send(const PS_Port& port, long type, int size, char *text,
+	    long ap) const;
+};
+
+//=======================================================================
+// class:	PS_Bus
+// description:	Encapsulates Parasol buses.
+//=======================================================================
+class PS_Bus : public PS_AbstractCarrier {
+private:
+	static	long	*node_ids;
+
+	long *Nodes2IDs(int nnodes, const PS_AbstractNode **nodes);
+	
+public:
+	PS_Bus(const char *name, long nnodes, const PS_AbstractNode **nodes, 
+	    double rate, long discipline, int stat_flag);
+	virtual SYSCALL Send(const PS_Port& port, long type, int size, 
+	    char *text, long ap) const;
+};
+
+
+#endif //__CARRIER_H

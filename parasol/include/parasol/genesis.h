@@ -1,4 +1,4 @@
-// $Id: genesis.h 9210 2010-02-24 18:59:24Z greg $
+// $Id: genesis.h 15456 2022-03-09 15:06:35Z greg $
 //=======================================================================
 //	genesis.h - The simulation startup code header file.
 //
@@ -30,15 +30,15 @@
 #define __GENESIS_H
 
 #ifndef __TASK_H
-#include <task.h>
+#include <parasol/task.h>
 #endif //__TASK_H
 
 #ifndef __NODE_H
-#include <node.h>
+#include <parasol/node.h>
 #endif //__NODE_H
 
 #ifndef __CARRIER_H
-#include <carrier.h>
+#include <parasol/carrier.h>
 #endif //__CARRIER_H
 
 //=======================================================================

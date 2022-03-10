@@ -1,6 +1,7 @@
-// $Id: para_entity.cc 15456 2022-03-09 15:06:35Z greg $
+// $Id: node.h 15456 2022-03-09 15:06:35Z greg $
 //=======================================================================
-//	para_entity.cc - PS_ParasolEntity class definition.
+//	node.h - PS_AbstractNode, PS_UserNode and PS_SystemNode class
+//		 declarations.
 //
 //	Copyright (C) 1995 School of Computer Science,
 //		Carleton University, Ottawa, Ont., Canada
@@ -26,14 +27,44 @@
 //	Created: 27/06/95 (PRM)
 //
 //=======================================================================
-#include <stdlib.h>
+#ifndef __NODE_H
+#define __NODE_H
+
+#ifndef __PARASOL_ENTITY_H
 #include <parasol/para_entity.h>
- 
+#endif //__PARASOL_ENTITY_H
+
 //=======================================================================
-// function:	void PS_ParasolEntity::Abort(const char*) 
-// description: Prints a message and aborts the simulation.
+// class:	PS_AbstractNode
+// description:	The base class from which other node classes inherit.
 //=======================================================================
-void PS_ParasolEntity::Abort(const char *message) const
-{
-	ps_abort(message);
-}
+class PS_AbstractNode : public PS_ParasolEntity {
+protected:
+	PS_AbstractNode(long nid) : PS_ParasolEntity(nid) {};
+
+public:
+	long ReadyToRun() const
+	    { return ps_ready_queue(id(), 0, NULL); };
+	long IdleCPUs() const
+	    { return ps_idle_cpu(id()); };
+};
+
+//=======================================================================
+// class:	PS_UserNode
+// description:	The base class from which user nodes inherit.
+//=======================================================================
+class PS_UserNode : public PS_AbstractNode {
+public:
+	PS_UserNode(const char *name, long ncpus, double speed, double quantum,
+	    long discipline, int stat_flags);
+};
+
+//=======================================================================
+// class:	PS_SystemNode
+// description:	The base class from which system nodes inherit. //=======================================================================
+class PS_SystemNode : public PS_AbstractNode {
+protected:
+	PS_SystemNode(long nid) : PS_AbstractNode(nid) {};
+};
+
+#endif //__NODE_H
