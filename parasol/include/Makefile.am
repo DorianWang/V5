@@ -24,4 +24,6 @@ noinst_HEADERS = ansidecl.h \
 	statistic.h \
 	task.h \
 	test_storage.h
+	CpuSC.h
+	TaskSC.h
 	
