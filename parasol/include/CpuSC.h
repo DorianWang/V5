@@ -20,7 +20,7 @@ struct CpuSC : public sc_module
       //SC_METHOD(); // This should be the task interrupt function. It may be called from above.
       SC_THREAD(completeTask); // This should be the regular task complete function.
    };
-   virtual ~CpuSC();
+   //virtual ~CpuSC();
 
    sc_event complete; // Tells the CPU to process the current task as it should be done.
    const ps_node_t& parent_node;

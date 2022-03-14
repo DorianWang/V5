@@ -2887,13 +2887,11 @@ SYSCALL	ps_record_stat2(
 	}
 
 	return(OK);
-}
-#endif
-;
+};
 
 /************************************************************************/
 
-#if !defined(__WINNT__) && !defined(__CYGWIN__)
+#else
 SYSCALL  ps_record_stat(
 /* Records a statistic sample or value.					*/
 
@@ -2943,12 +2941,10 @@ SYSCALL  ps_record_stat(
 
 	return(OK);
 }
-#endif
 ;
 
 /************************************************************************/
 
-#if !defined(__WINNT__) && !defined(__CYGWIN__)
 SYSCALL	ps_record_stat2(
 
 /* Records a statistic sample or value.					*/

@@ -27,6 +27,8 @@
 #include <para_internals.h>
 #include <para_privates.h>
 #include "config.h"
+#include "CpuSC.h"
+
 #if defined(HAVE_FENV_H)
 #if defined(__GNUC__) && defined(linux)
 #define __USE_GNU
@@ -58,6 +60,9 @@ int main(
 	long	flags = 0;			/* run-time flags	*/
  	double	duration;			/* simulation duration	*/
 	long	seed;				/* random number seed	*/
+
+	ps_node_t tempN;
+	CpuSC test1("Test1", tempN);
 
 	printf("\n\n\n**************************************************");
 	printf("******************************");

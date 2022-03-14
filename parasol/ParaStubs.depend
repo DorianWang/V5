@@ -124,7 +124,7 @@
 	<stdlib.h>
 	<task.h>
 
-1646860974 source:c:\users\admin\documents\github\v5\parasol\src\para_library.cpp
+1647296483 source:c:\users\admin\documents\github\v5\parasol\src\para_library.cpp
 	"para_internals.h"
 	"para_privates.h"
 	"para_protos.h"
@@ -135,10 +135,11 @@
 	<setjmp.h>
 	<cstddef>
 
-1646860974 source:c:\users\admin\documents\github\v5\parasol\src\standalone.cpp
+1647296376 source:c:\users\admin\documents\github\v5\parasol\src\standalone.cpp
 	<para_internals.h>
 	<para_privates.h>
 	"config.h"
+	"CpuSC.h"
 	<fenv.h>
 	<ieeefp.h>
 
@@ -930,6 +931,20 @@
 	"TaskSC.h"
 
 1647291185 c:\users\admin\documents\github\v5\parasol\tasksc.h
+	"systemc.h"
+	"para_types.h"
+
+1647283325 source:c:\users\admin\documents\github\v5\parasol\src\cpusc.cpp
+	"CpuSC.h"
+
+1647296481 c:\users\admin\documents\github\v5\parasol\include\cpusc.h
+	"systemc.h"
+	"para_types.h"
+
+1647283326 source:c:\users\admin\documents\github\v5\parasol\src\tasksc.cpp
+	"TaskSC.h"
+
+1647291185 c:\users\admin\documents\github\v5\parasol\include\tasksc.h
 	"systemc.h"
 	"para_types.h"
 
