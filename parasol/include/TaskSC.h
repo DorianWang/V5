@@ -1,13 +1,18 @@
 #ifndef TASKSC_H
 #define TASKSC_H
 
-#include "systemc.h"
+#include "bumber_consts.h"
+#include "bumber_shared.h"
 #include "para_types.h"
 
-struct TaskSC : public sc_module
+namespace bbs{
+
+struct CpuSC;
+
+struct TaskSC : public bbs_sc_module
 {
    /** Default constructor */
-   TaskSC(sc_module_name name) : sc_module(name){
+   TaskSC(std::string name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
       // Set up here.
    };
    /** Default destructor */
@@ -15,9 +20,8 @@ struct TaskSC : public sc_module
    std::string name;
 	ps_task_state_t state;			/* task state		*/
 	long	node;				/* node location	*/
-	long	uhost;				/* user cpu index	*/
-	long	host;				/* cpu index		*/
-	ps_cpu_t	*hp;		/* host pointer		*/
+	long	host;				/* user cpu index	*/
+	CpuSC	*hp;		/* host pointer		*/
 	void	(* code)(void *);		/* task code pointer	*/
 	long	upriority;			/* user task priority	*/
 	long	priority;			/* task priority	*/
@@ -51,5 +55,7 @@ struct TaskSC : public sc_module
 	long 	group_id;			/* order of group */
 	sched_info	*si;		/* contain the cfs schedule information of the task */
 };
+
+}
 
 #endif // TASKSC_H

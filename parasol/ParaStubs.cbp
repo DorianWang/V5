@@ -2,7 +2,7 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6" />
 	<Project>
-		<Option title="ParaStubs" />
+		<Option title="SystemCStubs" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
@@ -14,6 +14,9 @@
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-DSTANDALONE_TESTING" />
+					<Add option="-DBUMBERSHOOT_TESTING" />
+					<Add directory="./" />
+					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -21,11 +24,23 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="-std=c11" />
+			<Add option="-std=c++14" />
 			<Add directory="include" />
 			<Add directory="C:/Users/Admin/Documents/GitHub/V5/parasol/" />
+			<Add directory="../../../../Desktop/SystemC/include" />
 		</Compiler>
+		<Linker>
+			<Add library="../../../../Desktop/SystemC/lib/libsystemc.a" />
+		</Linker>
+		<Unit filename="include/Bus.h" />
+		<Unit filename="include/Link.h" />
+		<Unit filename="include/Message.h" />
+		<Unit filename="include/NodeSC.h" />
+		<Unit filename="include/QueuedPort.h" />
+		<Unit filename="include/TaskSC.h" />
 		<Unit filename="include/ansidecl.h" />
+		<Unit filename="include/bumber_consts.h" />
+		<Unit filename="include/bumber_shared.h" />
 		<Unit filename="include/carrier.h" />
 		<Unit filename="include/drand48.h" />
 		<Unit filename="include/genesis.h" />
@@ -43,6 +58,12 @@
 		<Unit filename="include/statistic.h" />
 		<Unit filename="include/task.h" />
 		<Unit filename="include/test_storage.h" />
+		<Unit filename="src/Bus.cpp" />
+		<Unit filename="src/Link.cpp" />
+		<Unit filename="src/NodeSC.cpp" />
+		<Unit filename="src/QueuedPort.cpp" />
+		<Unit filename="src/TaskSC.cpp" />
+		<Unit filename="src/bumber_library.cpp" />
 		<Unit filename="src/carrier.cc" />
 		<Unit filename="src/drand48.c">
 			<Option compilerVar="CC" />

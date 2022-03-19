@@ -27,7 +27,8 @@
 #include <para_internals.h>
 #include <para_privates.h>
 #include "config.h"
-#include "CpuSC.h"
+#include "NodeSC.h"
+#include "bumber_shared.h"
 
 #if defined(HAVE_FENV_H)
 #if defined(__GNUC__) && defined(linux)
@@ -47,6 +48,8 @@
 /*		PARASOL Driver Support Functions			*/
 /************************************************************************/
 
+#ifndef BUMBERSHOOT_TESTING
+
 int main(
 
 /* Default PARASOL mainline - scans command line for simulation		*/
@@ -61,8 +64,8 @@ int main(
  	double	duration;			/* simulation duration	*/
 	long	seed;				/* random number seed	*/
 
-	ps_node_t tempN;
-	CpuSC test1("Test1", tempN);
+	bbs::bs_message_t test1;
+	bbs::bs_run_bumbershoot();
 
 	printf("\n\n\n**************************************************");
 	printf("******************************");
@@ -153,6 +156,8 @@ int main(
 
 	return 0;
 }
+
+#endif // BUMBERSHOOT_TESTING
 
 /************************************************************************/
 

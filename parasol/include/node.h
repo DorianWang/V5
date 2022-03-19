@@ -1,4 +1,4 @@
-// $Id: node.h 9042 2009-10-14 01:31:21Z greg $
+// $Id: node.h 15456 2022-03-09 15:06:35Z greg $
 //=======================================================================
 //	node.h - PS_AbstractNode, PS_UserNode and PS_SystemNode class
 //		 declarations.
@@ -55,7 +55,7 @@ public:
 //=======================================================================
 class PS_UserNode : public PS_AbstractNode {
 public:
-	PS_UserNode(const char *name, long ncpus, double speed, double quantum, 
+	PS_UserNode(const char *name, long ncpus, double speed, double quantum,
 	    long discipline, int stat_flags);
 };
 

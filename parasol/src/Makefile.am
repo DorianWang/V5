@@ -12,11 +12,11 @@ noinst_LIBRARIES =  libparasol.a libparasolc.a libparasol++.a
 libparasol_a_SOURCES = para_library.cpp standalone.cpp 
 EXTRA_libparasol_a_SOURCES = drand48.c
 libparasol_a_DEPENDENCIES = @DRAND48@
-libparasol_a_LIBADD = @DRAND48@ /home/lia/sysc/systemc-2.3.3/lib-linux64/libsystemc.a
+libparasol_a_LIBADD = @DRAND48@ -lm /home/lia/sysc/systemc-2.3.3/lib-linux64/libsystemc.a
 
 libparasolc_a_SOURCES = para_library.cpp test_storage.cpp
 EXTRA_libparasolc_a_SOURCES = drand48.c
-libparasolc_a_LIBADD = @DRAND48@ /home/lia/sysc/systemc-2.3.3/lib-linux64/libsystemc.a
+libparasolc_a_LIBADD = @DRAND48@ -lm /home/lia/sysc/systemc-2.3.3/lib-linux64/libsystemc.a
 libparasolc_a_DEPENDENCIES = @DRAND48@
 
 

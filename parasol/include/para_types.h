@@ -152,6 +152,7 @@ public:
 	void free_mess(size_t index){
 		if (index < storage.size()){
 			unusedMessageIndex.push(index);
+			storage[index].text.clear(); // This probably won't clear the internal buffer, but it can.
 		}
 		else {
 			printf("Trying to free message with invalid index %llu!\n", index);
@@ -280,7 +281,7 @@ struct ps_cpu_t {			/* cpu processor struct	*/
 		group_rq = nullptr; //NULL_CFSRQ_PTR;  /* pointer of group rq */
 	}; // Default constructor to avoid big for loops.
 	long	state;				/* cpu state		*/
-	size_t	run_task;			/* running task	index	*/
+	size_t	run_task;			/* running task index	*/
 	long	stat;				/* statistics index	*/
 	ps_table_t<long>	*ts_tab;	/* task stats table	*/
 	long	scheduler;			/* scheduler task	*/
