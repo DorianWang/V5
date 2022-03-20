@@ -21,18 +21,13 @@ struct CpuSC : public bbs_sc_module
    void completeTask(); // Waits for the "complete" event,
    bool swapTask(); // For use with time slice/round robin scheduling. Not in scope; Untested.
    void assignTask(uint_fast32_t newTask); // Used by node to tell cpu to change task.
-   void init(int discipline){this->discipline = discipline;};
+   void init(){;};
 
    CpuSC(const std::string& name, NodeSC* parentNode, size_t index) : bbs_sc_module(name.c_str(), index), parentNode(parentNode){
-      SC_HAS_PROCESS(CpuSC);
-      state = BS_IDLE;
-      // This should be called whenever a new task should be considered.
-      SC_METHOD(checkTask);
-      sensitive << wakeUp;
-      dont_initialize();
-
       //SC_THREAD(completeTask); // This should be the regular task complete function.
    };
+
+   void before_end_of_elaboration() override;
 
    sc_event complete; // Tells the CPU to process the current task as it should be done.
    sc_event wakeUp;   // Tells the CPU to try to reschedule or kill the task.

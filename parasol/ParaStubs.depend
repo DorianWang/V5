@@ -1035,7 +1035,7 @@
 	<exception>
 	<cstddef>
 
-1647748602 source:c:\users\dorian\documents\github\v5\parasol\src\bumber_library.cpp
+1647789003 source:c:\users\dorian\documents\github\v5\parasol\src\bumber_library.cpp
 	"bumber_consts.h"
 	"bumber_shared.h"
 	"Message.h"
@@ -1063,7 +1063,7 @@
 	<cstdint>
 	<string>
 
-1647723271 c:\users\dorian\documents\github\v5\parasol\include\bus.h
+1647789192 c:\users\dorian\documents\github\v5\parasol\include\bus.h
 	"bumber_consts.h"
 	"bumber_shared.h"
 	"Message.h"
@@ -1092,7 +1092,7 @@
 	<queue>
 	<cstdint>
 
-1647752597 c:\users\dorian\documents\github\v5\parasol\include\nodesc.h
+1647789220 c:\users\dorian\documents\github\v5\parasol\include\nodesc.h
 	"bumber_consts.h"
 	"bumber_shared.h"
 	"Message.h"
@@ -1179,7 +1179,7 @@
 1638391491 source:c:\users\dorian\documents\github\v5\parasol\src\node.cc
 	<node.h>
 
-1647723271 source:c:\users\dorian\documents\github\v5\parasol\src\nodesc.cpp
+1647788921 source:c:\users\dorian\documents\github\v5\parasol\src\nodesc.cpp
 	"NodeSC.h"
 
 1638391491 source:c:\users\dorian\documents\github\v5\parasol\src\para_entity.cc

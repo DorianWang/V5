@@ -7,6 +7,7 @@ using bbs::NodeSC;
 void CpuSC::checkTask()
 {
    // Checks info of current (possibly new) task and sets event pointers appropriately.
+   std::cout << sc_time_stamp() << " checkTask()!" << std::endl;
    return;
 }
 
@@ -16,6 +17,18 @@ void CpuSC::completeTask()
       wait(complete);
       // Do something like respond back to the message or execute the task.
    }
+   return;
+}
+
+void CpuSC::before_end_of_elaboration()
+{
+   SC_HAS_PROCESS(CpuSC);
+   state = BS_IDLE;
+   // This should be called whenever a new task should be considered.
+   SC_METHOD(checkTask);
+   sensitive << wakeUp;
+   dont_initialize();
+   printf("Before End of Elaboration!\n");
    return;
 }
 

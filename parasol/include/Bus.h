@@ -31,7 +31,7 @@ class Bus : public bbs_sc_module
       };
 
       virtual ~Bus(){
-         for (size_t i = mq.size(); i >= 0; i--){
+         for (size_t i = mq.size(); i > 0; i--){
             bs_mess_pool.free_mess(mq.front());
             mq.pop();
          }

@@ -19,11 +19,11 @@ namespace bbs{
    //bm_table_t <NodeSC> bm_node_tab("Node");
    //bm_table_t <TaskSC> bm_task_tab("Task");
 
-// So basically this function should be what the ps_run_parasol function was.
-int bs_run_bumbershoot()
-{
-   return 0;
-}
+   // So basically this function should be what the ps_run_parasol function was.
+   int bs_run_bumbershoot()
+   {
+      return 0;
+   }
 
 }
 
@@ -32,12 +32,18 @@ public:
 
    sc_event testEvent;
    sc_vector <bbs::Bus> testVec;
+   sc_vector <bbs::NodeSC> testVec2;
+   sc_vector <bbs::CpuSC> testVec3;
    void hello(){
       std::cout << "Hello World!" << std::endl;
    };
    TopTest(sc_module_name name, size_t index) : sc_module(name), testVec(name){
       SC_HAS_PROCESS(TopTest);
       testVec.init(12, [=](const char* nm, size_t i){return new bbs::Bus(nm, i);});
+      testVec2.init(4, [=](const char* nm, size_t i){return new bbs::NodeSC(nm, i);});
+      testVec3.init(4, [=](const char* nm, size_t i){return new bbs::CpuSC(nm, nullptr, i);});
+      testEvent.notify(12, DEFAULT_TIME_TICK);
+      testVec3[0].wakeUp.notify(4, DEFAULT_TIME_TICK);
       SC_METHOD(hello);
       sensitive << testEvent;
       dont_initialize();
@@ -89,6 +95,7 @@ int sc_main(int argc, char** argv)
    //   std::cout << test[i].name() << " " << test2[i].name() << std::endl;
    //}
    std::cout << "End of main!" << std::endl;
+   sc_start();
 
    return 0;
 }
