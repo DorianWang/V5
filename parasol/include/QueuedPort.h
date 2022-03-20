@@ -26,11 +26,11 @@ public:
 
    // Should be called by owning node, gives next message based on queuing discipline.
    // Timeout time is measured in ticks. Returns 0 on empty, 1 on success.
-   int get_message(uint_fast32_t* message, QDiscipline curDisc = _NONE);
+   int get_message(uint_fast32_t* message, QDiscipline curDisc = BS_NONE);
 
    void receive_message(uint_fast32_t message);
 
-   QueuedPort(size_t assoc_dst_node, size_t assoc_task, size_t stat, QDiscipline discipline = _FIFO) :
+   QueuedPort(size_t assoc_dst_node, size_t assoc_task, size_t stat, QDiscipline discipline = BS_FIFO) :
    assoc_dst_node(assoc_dst_node), assoc_task(assoc_task), stat(stat), discipline(discipline){
       // Just check the stat and initialize it I guess
    };

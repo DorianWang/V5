@@ -38,7 +38,11 @@ protected:
 template <class T> struct bbs_putter : public sc_module {
    sc_event& sendEvent;
    T& owner;
-   void send_message(); // Implemented in Link.cpp.
+   void send_message(){
+      uint_fast32_t messID = owner.pop_message();
+      bs_message_t* mp = bs_mess_pool.get_mp(messID);
+      std::cout << mp->text << std::endl; // Link this up later.
+   };
    bbs_putter(sc_module_name name, sc_event& sendEvent, T& owner) : sc_module(name), sendEvent(sendEvent), owner(owner){
       SC_HAS_PROCESS(bbs_putter);
       SC_METHOD(send_message);

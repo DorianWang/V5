@@ -17,6 +17,7 @@
 					<Add option="-DBUMBERSHOOT_TESTING" />
 					<Add directory="./" />
 					<Add directory="include" />
+					<Add directory="C:/Users/Dorian/Documents/GitHub/V5/parasol/" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />

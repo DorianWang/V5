@@ -88,6 +88,7 @@ int sc_main(int argc, char** argv)
    //for (int i = 0; i < 12; i++){
    //   std::cout << test[i].name() << " " << test2[i].name() << std::endl;
    //}
+   std::cout << "End of main!" << std::endl;
 
    return 0;
 }

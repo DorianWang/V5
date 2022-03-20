@@ -10,20 +10,20 @@ int QueuedPort::get_message(uint_fast32_t* message, QDiscipline curDisc)
    if (mq.size() == 0){
       return 0;
    }
-   if (curDisc == _NONE){
+   if (curDisc == BS_NONE){
       curDisc = discipline;
    }
 
    switch(curDisc){
-   case _FIFO:
+   case BS_FIFO:
       *message = mq.front();
       mq.pop_front();
       break;
-   case _LIFO:
+   case BS_LIFO:
       *message = mq.back();
       mq.pop_back();
       break;
-   case _RAND:
+   case BS_RAND:
       if (mq.size() == 1){
          *message = mq[0];
          mq.pop_back();
@@ -33,7 +33,7 @@ int QueuedPort::get_message(uint_fast32_t* message, QDiscipline curDisc)
       *message = mq[rand];
       mq.erase(mq.begin() + rand); // This is somewhat inefficient for deques if in the middle.
       break;
-   case _NPRI:
+   case BS_NPRI:
 
       for (int i = 0; i < mq.size(); i++){
          // If message priority is greater, set index and new highest priority.

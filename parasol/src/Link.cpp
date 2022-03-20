@@ -2,12 +2,7 @@
 
 namespace bbs{
 
-template <class T> void bbs_putter<T>::send_message()
-{
-   uint_fast32_t messID = owner.pop_message();
-   bs_message_t* mp = bs_mess_pool.get_mp(messID);
-   std::cout << mp->text << std::endl; // Link this up later.
-}
+
 
 uint_fast32_t Link::pop_message(){
    uint_fast32_t res = mq.front();

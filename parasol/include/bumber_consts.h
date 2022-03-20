@@ -12,15 +12,27 @@
 namespace bbs{
 
 enum QDiscipline{
-   _NONE, // Unset, possible uninitialized error
-   _FIFO, // First In, First Out AKA First Come, First Serve
-   _NHOL, // No Head Of Line blocking, means FIFO with ability to skip stalled tasks/messages.
-   _LIFO, // Last In, First Out
-   _RAND, // Random pick from queue
-   _NPRI, // Non preemptive Priority
-   _PPRI, // Preemptive Priority (with resume)
-   _CFS   // Completely Fair Scheduler, whatever it is linux has I guess
+   BS_NONE, // Unset, possible uninitialized error
+   BS_FIFO, // First In, First Out AKA First Come, First Serve
+   BS_NHOL, // No Head Of Line blocking, means FIFO with ability to skip stalled tasks/messages.
+   BS_LIFO, // Last In, First Out
+   BS_RAND, // Random pick from queue
+   BS_NPRI, // Non preemptive Priority
+   BS_PPRI, // Preemptive Priority (with resume)
+   BS_CFS   // Completely Fair Scheduler, whatever it is linux has I guess
 };
+
+enum CPUState{
+   BS_IDLE,
+   BS_BUSY
+};
+
+enum TaskState{
+   BS_READY,
+   BS_COMPUTING,
+   BS_BLOCKED
+};
+
 }
 
 #endif // BUMBER_CONSTS_H_INCLUDED
