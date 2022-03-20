@@ -30,26 +30,12 @@ public:
    bbs_sc_module(sc_module_name name, size_t index) : sc_module(name), index(index){};
    size_t get_index() const {return index;};
    void set_index(size_t newIndex){index = newIndex;};
+   std::string BSname;
 protected:
    size_t index;
 };
 
 
-template <class T> struct bbs_putter : public sc_module {
-   sc_event& sendEvent;
-   T& owner;
-   void send_message(){
-      uint_fast32_t messID = owner.pop_message();
-      bs_message_t* mp = bs_mess_pool.get_mp(messID);
-      std::cout << mp->text << std::endl; // Link this up later.
-   };
-   bbs_putter(sc_module_name name, sc_event& sendEvent, T& owner) : sc_module(name), sendEvent(sendEvent), owner(owner){
-      SC_HAS_PROCESS(bbs_putter);
-      SC_METHOD(send_message);
-      sensitive << sendEvent;
-      dont_initialize();
-   }
-};
 
 
 
@@ -61,9 +47,34 @@ template <class T> struct bbs_putter : public sc_module {
 // This might be overkill, but at least I had fun making it.
 
 template <class T> class bm_table_t {			/* dynamic table for bbs_sc_module type */
+
+
+
 public:
    static constexpr int PAGE_SIZE = 64; // Around 8 and a half 4KiB pages. Oh well.
-   bm_table_t(const std::string& nameSuffix) : nameSuffix(nameSuffix){
+
+   class bm_table_t_IType{
+   protected:
+      T* pageRef;
+      size_t currLoc;
+      bm_table_t <T>& owner;
+   public:
+      bm_table_t_IType(bm_table_t <T>& owner, size_t currLoc) : owner(owner), currLoc(currLoc){
+         pageRef = owner.table[currLoc / bm_table_t::PAGE_SIZE];
+      };
+      T& operator*(){ return pageRef[currLoc % bm_table_t::PAGE_SIZE]; };
+      const T& operator*() const { return pageRef[currLoc % bm_table_t::PAGE_SIZE]; };
+      void operator++(){
+         currLoc++;
+         if (currLoc % bm_table_t::PAGE_SIZE == 0)
+            pageRef = owner.table[currLoc / bm_table_t::PAGE_SIZE];
+         };
+      bool operator!=(const bm_table_t_IType& rhs){ return currLoc != rhs.currLoc; };
+   };
+   friend class bm_table_t_IType;
+   typedef bm_table_t_IType iterator;
+   typedef const bm_table_t_IType const_iterator;
+   bm_table_t(const std::string& namePrefix) : namePrefix(namePrefix){
       sizeVal = sizeof(T);
       alignVal = alignof(T);
       if (alignVal > alignof(std::max_align_t))
@@ -95,24 +106,27 @@ public:
 
    size_t size() const {return numStored;};
    void add_page(){
-      char* page = new char(sizeVal * PAGE_SIZE);
+      char* page = new char[sizeVal * PAGE_SIZE];
       table.push_back(reinterpret_cast<T*>(page));
       maxStored += PAGE_SIZE;
    }
    size_t add_entry(int num_create = 1){
-      if (num_create <= 0) throw std::out_of_range(nameSuffix + " table: num_create value not positive!");
+      if (num_create <= 0) throw std::out_of_range(namePrefix + " table: num_create value not positive!");
+
+      while (numStored + num_create > maxStored){
+         add_page();
+      }
       for (int i = 0; i < num_create; i++){
-         if (numStored == maxStored) add_page();
-         T* newObj = new(table[numStored / PAGE_SIZE][numStored % PAGE_SIZE]) T(nameSuffix + std::to_string(numStored), numStored);
+         T* newObj = new(table[numStored / PAGE_SIZE] + (numStored % PAGE_SIZE)) T(namePrefix + std::to_string(numStored), numStored);
          if (newObj == nullptr)
-            throw std::runtime_error(nameSuffix + " table: failed to allocate object in table!");// Panic and die.
+            throw std::runtime_error(namePrefix + " table: failed to allocate object in table!");// Panic and die.
          numStored++;
       }
       return numStored - 1; // Current index of last object in container.
    };
 
    size_t add_entry(std::string name, int num_create = 1){
-      if (num_create <= 0) throw std::out_of_range(nameSuffix + " num_create value not positive!");
+      if (num_create <= 0) throw std::out_of_range(namePrefix + " num_create value not positive!");
       for (int i = 0; i < num_create; i++){
          if (numStored == maxStored) add_page();
          std::string tempName = name + std::to_string(i);
@@ -120,7 +134,7 @@ public:
          std::cout << tempName << " " << tempPtr << std::endl;
          T* newObj = new(tempPtr) T(tempName, numStored);
          if (newObj == nullptr)
-            throw std::runtime_error(nameSuffix + " table: failed to allocate object in table!");// Panic and die.
+            throw std::runtime_error(namePrefix + " table: failed to allocate object in table!");// Panic and die.
          numStored++;
       }
       return numStored - 1;
@@ -128,22 +142,33 @@ public:
 
    T& get_entry(size_t index){
       if (index >= numStored){
-         throw std::out_of_range(nameSuffix + " table: get_entry index out of range!");
+         throw std::out_of_range(namePrefix + " table: get_entry index out of range!");
       }
-      return table[numStored / PAGE_SIZE][numStored % PAGE_SIZE];
+      return table[index / PAGE_SIZE][index % PAGE_SIZE];
    }
    T& operator[](size_t index){
-      return table[numStored / PAGE_SIZE][numStored % PAGE_SIZE];
+      return table[index / PAGE_SIZE][index % PAGE_SIZE];
    }
+   const T& operator[](size_t index) const {
+      return table[index / PAGE_SIZE][index % PAGE_SIZE];
+   }
+   iterator begin() { return bm_table_t_IType(*this, 0); }
+   const iterator begin() const { return bm_table_t_IType(&this, 0); }
+   iterator end() {return bm_table_t_IType(*this, numStored);}
+   const iterator end() const {return bm_table_t_IType(&this, numStored);}
+
+
    // Currently no entry removal. This would be rather complicated and would need much more code.
 
-private:
+
+
+protected:
    size_t alignVal;
    size_t sizeVal;
    size_t numStored;
    size_t maxStored;
    std::vector <T*> table;
-   std::string nameSuffix;
+   std::string namePrefix;
 };
 
 

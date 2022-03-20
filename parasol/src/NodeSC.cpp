@@ -8,6 +8,7 @@ void CpuSC::checkTask()
 {
    // Checks info of current (possibly new) task and sets event pointers appropriately.
    std::cout << sc_time_stamp() << " checkTask()!" << std::endl;
+   std::cout << BSname << " checkTask()!" << std::endl;
    return;
 }
 

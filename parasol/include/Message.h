@@ -14,18 +14,18 @@ struct bs_message_t{
    // This should total around 80 bytes, excluding the dynamic string data.
    // I think it will still be best to use a pool for them,
    // since there's probably a lot of them and they have short lifespans
-   uint_fast32_t sender;				/* sending task index		*/
-   uint_fast32_t port;				/* port index		*/
-   uint_fast32_t ack_port;			/* ack port index	*/
-   uint_fast32_t org_port;			/* original port index	*/
-   uint_fast32_t c_code;			/* comm media code	*/
-   uint_fast32_t blid;				/* bus/link index	*/
-   uint_fast32_t type;				/* message type code	*/
-   uint_fast32_t length;				/* message size, used for bus_delay and link_delay	*/
-   uint_fast32_t mid;				/* Unique message id, should this be 64 bit? Not sure exactly where this is set */
-   uint_fast32_t did;				/* dye id, unimplemented		*/
-   uint_fast32_t pri;				/* Message priority	*/
-   uint_fast64_t ts;		// Message time stamp, generally obtained from sc_time_stamp().value()
+   uint_fast32_t sender;		/* sending task index		*/
+   uint_fast32_t port;			/* port index		*/
+   uint_fast32_t ack_port;		/* ack port index	*/
+   uint_fast32_t org_port;		/* original port index	*/
+   uint_fast32_t c_code;		/* comm media code	*/
+   uint_fast32_t blid;			/* bus/link index	*/
+   uint_fast32_t type;			/* message type code	*/
+   uint_fast32_t length;		/* message size, used for bus_delay and link_delay	*/
+   uint_fast32_t mid;			/* Unique message id, should this be 64 bit? Not sure exactly where this is set */
+   uint_fast32_t did;			/* dye id, unimplemented		*/
+   uint_fast32_t pri;			/* Message priority	*/
+   uint_fast64_t ts;		      // Message time stamp, generally obtained from sc_time_stamp().value()
    std::string text;				/* message text, maybe use a shared pointer instead?	*/
 };
 

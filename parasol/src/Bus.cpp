@@ -3,12 +3,12 @@
 
 using bbs::Bus;
 
-uint_fast32_t Bus::pop_message(){
-   uint_fast32_t res = mq.front();
+void Bus::send_message(){
+   uint_fast32_t messID = mq.front();
    mq.pop();
-   return res;
-}
-
+   bs_message_t* mp = bs_mess_pool.get_mp(messID);
+   std::cout << mp->text << std::endl; // Link this up later.
+};
 
 void Bus::push_message(uint_fast32_t mess_index)
 {
@@ -54,6 +54,14 @@ bool Bus::find_node(size_t node)
    return associated_nodes.count(node);
 }
 
+void Bus::before_end_of_elaboration()
+{
+   SC_HAS_PROCESS(Bus);
+   SC_METHOD(send_message);
+   sensitive << sendEvent;
+   dont_initialize();
+   std::cout << "Bus end of elaboration!" << std::endl;
+}
 
 
 

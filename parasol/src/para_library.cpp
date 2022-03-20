@@ -466,9 +466,9 @@ SYSCALL	ps_create(
 SYSCALL	ps_create_group(
 
 /* Creates a named task in the TASK_SUSPENDED state on a specified 	*/
-/* "node" and "host" cpu processor. The host may be ANY_HOST.  "Class"	*/
+/* "node" and "host" cpu processor. The host may be ANY_HOST.  "code"	*/
 /* refers to the C function serving as the main function of the task.	*/
-/* No arguments are passed.  The sheduling priority of the task is given*/
+/* No arguments are passed.  The scheduling priority of the task is given*/
 /* by "priority". 							*/
 
 	const 	char	*name,			/* task name		*/

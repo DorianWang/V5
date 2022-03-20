@@ -23,11 +23,13 @@ class Bus : public bbs_sc_module
       bool remove_node(size_t node);
       bool find_node(size_t node);
       QDiscipline discipline; // Bus queuing discipline, can only be FIFO or RAND
-      bbs_putter <Bus>* putter;
       sc_event message_transfered;
+      sc_event sendEvent;
+
+      void send_message();
+      void before_end_of_elaboration() override;
 
       Bus(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index){
-         putter = new bbs_putter<Bus>((name + "_put").c_str(), message_transfered, *this);
       };
 
       virtual ~Bus(){

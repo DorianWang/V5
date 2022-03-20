@@ -15,9 +15,9 @@
 namespace bbs{
    bs_message_pool bs_mess_pool; // Temporary initialization here.
    bm_table_t <Bus> bm_bus_tab("Bus");
-   //bm_table_t <Link> bm_link_tab("Link");
-   //bm_table_t <NodeSC> bm_node_tab("Node");
-   //bm_table_t <TaskSC> bm_task_tab("Task");
+   bm_table_t <Link> bm_link_tab("Link");
+   bm_table_t <NodeSC> bm_node_tab("Node");
+   bm_table_t <TaskSC> bm_task_tab("Task");
 
    // So basically this function should be what the ps_run_parasol function was.
    int bs_run_bumbershoot()
@@ -33,17 +33,23 @@ public:
    sc_event testEvent;
    sc_vector <bbs::Bus> testVec;
    sc_vector <bbs::NodeSC> testVec2;
-   sc_vector <bbs::CpuSC> testVec3;
+   bbs::bm_table_t <bbs::NodeSC> testTable;
    void hello(){
       std::cout << "Hello World!" << std::endl;
    };
-   TopTest(sc_module_name name, size_t index) : sc_module(name), testVec(name){
+   TopTest(sc_module_name name, size_t index) : sc_module(name), testVec(name), testVec2("Nodes"), testTable("Node_"){
       SC_HAS_PROCESS(TopTest);
       testVec.init(12, [=](const char* nm, size_t i){return new bbs::Bus(nm, i);});
       testVec2.init(4, [=](const char* nm, size_t i){return new bbs::NodeSC(nm, i);});
-      testVec3.init(4, [=](const char* nm, size_t i){return new bbs::CpuSC(nm, nullptr, i);});
+      testTable.add_entry(66);
+      std::cout << testTable.size() << " is the size!" << std::endl;
+      std::cout << testTable[0].BSname << " " << testTable[65].BSname << " is the size!" << std::endl;
+      for (bbs::NodeSC& iter : testTable){
+         std::cout << iter.BSname << std::endl;
+         iter.init(2, 1.2, 0.5, bbs::BS_FIFO, 1);
+      }
+
       testEvent.notify(12, DEFAULT_TIME_TICK);
-      testVec3[0].wakeUp.notify(4, DEFAULT_TIME_TICK);
       SC_METHOD(hello);
       sensitive << testEvent;
       dont_initialize();

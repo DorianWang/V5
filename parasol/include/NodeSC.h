@@ -23,9 +23,7 @@ struct CpuSC : public bbs_sc_module
    void assignTask(uint_fast32_t newTask); // Used by node to tell cpu to change task.
    void init(){;};
 
-   CpuSC(const std::string& name, NodeSC* parentNode, size_t index) : bbs_sc_module(name.c_str(), index), parentNode(parentNode){
-      //SC_THREAD(completeTask); // This should be the regular task complete function.
-   };
+   CpuSC(const std::string& name, NodeSC* parentNode, size_t index) : bbs_sc_module(name.c_str(), index), parentNode(parentNode){ BSname = name; };
 
    void before_end_of_elaboration() override;
 
@@ -45,7 +43,6 @@ public:
    std::set <uint_fast32_t> busIDs;
    std::set <uint_fast32_t> linkIDs;
    sc_vector <CpuSC> cpus;
-   std::string name;
    double speed;
    double quantum;
    int statFlag;
@@ -59,12 +56,15 @@ public:
 
    void init(int ncpus, double speed, double quantum, QDiscipline discipline, int statFlag){
       this->discipline = discipline;
-      std::string baseCPUName = this->name + "_cpu";
+      std::string baseCPUName = this->BSname + "_cpu";
       cpus.init(ncpus, [=](const char*, size_t i){return new CpuSC(baseCPUName + std::to_string(i), this, i);});
    };
 
    // (name, ncpu, speed, quantum, discipline, sf, ps_now)
-   NodeSC(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index), name(name){};
+   NodeSC(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index){
+      BSname = name;
+      // std::cout << "Building Node with name: " << BSname << std::endl;
+   };
 
 private:
 
