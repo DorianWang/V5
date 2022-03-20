@@ -1,5 +1,5 @@
 #include "Bus.h"
-#include "Node.h"
+#include "NodeSC.h"
 
 using bbs::Bus;
 
