@@ -1,5 +1,10 @@
 #include "QueuedPort.h"
 
+// Not really sure why this define exists, but it does and I don't want to break it.
+#if !defined(HAVE_DRAND48)
+#include "drand48.h"
+#endif
+
 using bbs::QueuedPort;
 
 int QueuedPort::get_message(uint_fast32_t* message, QDiscipline curDisc)
@@ -34,12 +39,15 @@ int QueuedPort::get_message(uint_fast32_t* message, QDiscipline curDisc)
       mq.erase(mq.begin() + rand); // This is somewhat inefficient for deques if in the middle.
       break;
    case BS_NPRI:
-
       for (int i = 0; i < mq.size(); i++){
          // If message priority is greater, set index and new highest priority.
+         if (bs_mess_pool[mq[i]].pri > highest){
+            index = i;
+            highest = bs_mess_pool[mq[i]].pri;
+         }
       }
-      *message = mq[highest];
-      mq.erase(mq.begin() + rand);
+      *message = mq[index];
+      mq.erase(mq.begin() + index);
       break;
    default:
       // Panic?

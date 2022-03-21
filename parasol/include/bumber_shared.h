@@ -105,7 +105,6 @@ public:
    }
    size_t add_entry(int num_create = 1){
       if (num_create <= 0) throw std::out_of_range(namePrefix + " table: num_create value not positive!");
-
       while (numStored + num_create > maxStored){
          add_page();
       }
@@ -144,6 +143,10 @@ public:
    const T& operator[](size_t index) const {
       return table[index / PAGE_SIZE][index % PAGE_SIZE];
    }
+   T& back(){
+      return table[numStored - 1 / PAGE_SIZE][numStored - 1 / PAGE_SIZE];
+   }
+
    iterator begin() { return bm_table_t_IType(*this, 0); }
    const iterator begin() const { return bm_table_t_IType(&this, 0); }
    iterator end() {return bm_table_t_IType(*this, numStored);}

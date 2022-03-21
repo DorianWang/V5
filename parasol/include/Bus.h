@@ -43,7 +43,11 @@ class Bus : public bbs_sc_module
          }
       }
 
-      void init(int_fast64_t trate, QDiscipline discipline){
+      // discipline is currently not used, but it seems to exist in parasol.
+      void init(int_fast64_t trate, QDiscipline discipline = BS_FIFO){
+         if (trate < 0){
+            trate = 1; // Also put an error somewhere I guess.
+         }
          this->trate = trate; this->discipline = discipline;
 
       }

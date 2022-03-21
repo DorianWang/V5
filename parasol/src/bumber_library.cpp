@@ -40,10 +40,12 @@ public:
       SC_HAS_PROCESS(TopTest);
       bbs::bm_node_tab.add_entry(4);
 
-      bbs::bm_port_vec.emplace_back(0, 0, 0);
-      bbs::bm_port_vec.emplace_back(2, 1, 0);
-      bbs::bm_port_vec.emplace_back(1, 2, 0);
-      bbs::bm_port_vec.emplace_back(3, 3, 0);
+      bbs::bm_port_vec.emplace_back(0);
+      bbs::bm_port_vec.emplace_back(1);
+      bbs::bm_port_vec.emplace_back(2);
+      bbs::bm_port_vec.emplace_back(3);
+      bbs::bm_port_vec[0].init(0, 0, 0);
+      bbs::bm_port_vec[1].init(2, 1, 0);
 
       bbs::bm_link_tab.add_entry(2);
 
@@ -79,7 +81,7 @@ void code_tester(void* tvPtr)
    std::cout << "Testing code!" << std::endl;
    bbs::TaskThread* tPtr = reinterpret_cast<bbs::TaskThread*>(tvPtr);
    std::cout << tPtr->parentName << ": " << tPtr->taskIndex << std::endl;
-   if (bbs::send_link(tvPtr, 0, 1, 0, 28000, "Hello!", 0) == 0){
+   if (bbs::send_link(tvPtr, 0, 1, 0, 28000, "Hello!", 0) == bbs::FUNC_GOOD){
       std::cout << "send_link success" << std::endl;
    }
    int res = bbs::wait_for_message(tvPtr, 0, -1);
@@ -107,7 +109,7 @@ int sc_main(int argc, char** argv)
 
 namespace bbs{
    bs_message_pool bs_mess_pool; // Temporary initialization here.
-   uint_fast64_t bs_message_pool::nextMessageID; // Should be initialized to 0
+   uint_fast64_t bs_message_pool::nextMessageID = 0; // Should automatically be initialized to 0
    bm_table_t <Bus> bm_bus_tab("Bus");
    bm_table_t <Link> bm_link_tab("Link");
    bm_table_t <NodeSC> bm_node_tab("Node");
@@ -119,6 +121,120 @@ namespace bbs{
    {
       return 0;
    }
+
+
+   int bs_build_node(uint_fast32_t* index, const std::string& name, int ncpus, double speed,
+                     double quantum, QDiscipline discipline, int statFlag)
+   {
+      if (index == nullptr) return FUNC_ERR;
+      if (ncpus < 1 || speed < 0.0 || quantum < 0.0) return FUNC_ERR;
+      if (name.length() == 0){
+         bm_node_tab.add_entry();
+      }
+      else {
+         bm_node_tab.add_entry(name);
+      }
+      NodeSC& temp = bm_node_tab.back();
+      *index = temp.get_index();
+      temp.init(ncpus, speed, quantum, discipline, statFlag);
+      return FUNC_GOOD;
+   }
+
+   int bs_build_port(int stat, size_t dst_node, size_t assoc_task, QDiscipline discipline)
+   {
+      size_t newIndex = bm_port_vec.size();
+      bm_port_vec.emplace_back(newIndex);
+      bm_port_vec[newIndex].init(dst_node, assoc_task, stat, discipline);
+      return FUNC_GOOD;
+   }
+
+   int bs_build_bus(std::string name, int_fast64_t trate, QDiscipline discipline)
+   {
+      if (name.length()){
+         bm_bus_tab.add_entry(name);
+      }
+      else {
+         bm_bus_tab.add_entry();
+      }
+      Bus& newBus = bm_bus_tab.back();
+      newBus.init(trate, discipline);
+      return FUNC_GOOD;
+   }
+
+   int bs_build_link(std::string name, int_fast64_t trate)
+   {
+      if (name.length()){
+         bm_link_tab.add_entry(name);
+      }
+      else {
+         bm_link_tab.add_entry();
+      }
+      Link& newLink = bm_link_tab.back();
+      newLink.init(trate, NULL_INDEX, NULL_INDEX);
+      return FUNC_GOOD;
+   }
+
+   int bs_build_task(std::string name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*))
+   {
+      if (name.length()){
+         bm_task_tab.add_entry(name);
+      }
+      else {
+         bm_task_tab.add_entry();
+      }
+      TaskSC& newTask = bm_task_tab.back();
+      newTask.init(node, host, code);
+      return FUNC_GOOD;
+   }
+
+   int bs_assign_task(uint_fast32_t node, uint_fast32_t task, uint_fast32_t host)
+   {
+      if (node >= bm_node_tab.size()) return FUNC_ERR;
+      if (task >= bm_task_tab.size()) return FUNC_ERR;
+      NodeSC& nref = bm_node_tab[node];
+      TaskSC& tref = bm_task_tab[task];
+      TaskThread* newThread = new TaskThread(nref.BSname + '_' + tref.BSname, node, host, task);
+      if (newThread == nullptr) return FUNC_ERR;
+      nref.rtrq.push_back(newThread);
+      tref.state = BS_READY; tref.node = node; tref.host = host;
+      return FUNC_GOOD;
+   }
+
+   int bs_connect_link(uint_fast32_t link, uint_fast32_t src, uint_fast32_t dst)
+   {
+      if (link >= bm_link_tab.size()) return FUNC_ERR;
+      Link& lref = bm_link_tab[link];
+      lref.set_link(src, dst);
+      if (src < bm_node_tab.size()) bm_node_tab[src].linkSrcIDs.insert(link);
+      if (dst < bm_node_tab.size()) bm_node_tab[dst].linkDstIDs.insert(link);
+      return FUNC_GOOD;
+   }
+
+   int bs_connect_bus(uint_fast32_t bus, uint_fast32_t node)
+   {
+      if (node >= bm_node_tab.size()) return FUNC_ERR;
+      if (bus >= bm_bus_tab.size()) return FUNC_ERR;
+      Bus& bref = bm_bus_tab[bus];
+      bref.add_node(node);
+      bm_node_tab[node].busIDs.insert(bus);
+   }
+
+   int bs_disconnect_bus(uint_fast32_t bus, uint_fast32_t node)
+   {
+      if (node >= bm_node_tab.size()) return FUNC_ERR;
+      if (bus >= bm_bus_tab.size()) return FUNC_ERR;
+      Bus& bref = bm_bus_tab[bus];
+      if (bref.remove_node(node)){
+         if (bm_node_tab[node].remove_bus_connection(bus)){
+            return FUNC_GOOD;
+         }
+         return FUNC_FAIL; // Maybe also give a warning/error?
+      }
+      else {
+         return FUNC_FAIL;
+      }
+   }
+
 
    // timeout is an integer of units DEFAULT_SMALLER_TICK
    // if timeout < 0, just wait for event.
@@ -151,6 +267,15 @@ namespace bbs{
          tPtr->state = BS_COMPUTING;
          return ((port.num_queued()) ? FUNC_GOOD : FUNC_TIME);
       }
+   }
+
+   // If there is no message at the port, returns a timeout value.
+   int get_message_from_port(void* tvPtr, uint_fast32_t port, bs_message_t* mess)
+   {
+      TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
+      if (port >= bm_port_vec.size()) return FUNC_ERR;
+      if (tPtr->nodeIndex != bm_port_vec[port].get_associated_node()) return FUNC_FAIL; // Does not own port.
+      return 0; // TODO
    }
 
    int send_link(void* tvPtr, uint_fast32_t link, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort)

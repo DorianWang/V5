@@ -11,7 +11,7 @@ struct TaskThread;
 
 struct TaskSC : public bbs_sc_module
 {
-   TaskSC(const std::string& name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
+   TaskSC(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index){
       // Set up here.
    };
    virtual ~TaskSC(){};
@@ -35,11 +35,8 @@ struct TaskSC : public bbs_sc_module
 	long	blind_port;			/* blind port index	*/
 	long	wport;				/* waiting port index	*/
 	long	lock_list;			/* lock list 		*/
-	ps_event_t	*tep;		/* task event pointer	*/
 	double	rct;				/* remaining cpu time	*/
-	ps_event_t	*qep;		/* quantum event pointer*/
 	long	qx;				/* quantum expired flag	*/
-	ps_event_t	*rtoep;		/* receive t/o event ptr*/
 	long	did;				/* dye id		*/
 	long	tsn;				/* Task serial number	*/
 	double	sched_time;			/* Task schedule time	*/
@@ -62,7 +59,7 @@ struct TaskThread
    // Holds the information associated with a spawned thread. Very memory intensive, but it's the easiest way.
    sc_event wakeUp; // Tells the task to wake up from waiting and check current state.
    sc_event resume; // Tells the task to resume execution.
-   std::string parentName;
+   std::string parentName; // Host name + Task name?
    TaskState state;
    size_t taskIndex; // Associated task index
    size_t hostIndex; // Associated host(CPU) index
@@ -70,7 +67,6 @@ struct TaskThread
    TaskThread(std::string parentName, size_t nodeIndex, size_t hostIndex, size_t taskIndex, TaskState state = BS_READY)
             : parentName(parentName), hostIndex(hostIndex), taskIndex(taskIndex), state(state){
       sc_spawn_options opt;
-      std::cout << "Inside TaskThread" << std::endl;
       TaskSC& task = bm_task_tab.at(taskIndex);
       if (state == BS_COMPUTING) resume.notify(SC_ZERO_TIME); // Do not immediately run unless it is actually set to run.
       // It is possible to keep the handle of the spawned thread if desired, but I don't need it for now.
