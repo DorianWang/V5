@@ -29,8 +29,7 @@ class Bus : public bbs_sc_module
       void send_message();
       void before_end_of_elaboration() override;
 
-      Bus(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index){
-      };
+      Bus(const std::string& name, size_t index) : bbs_sc_module(name.c_str(), index){};
 
       virtual ~Bus(){
          for (size_t i = mq.size(); i > 0; i--){

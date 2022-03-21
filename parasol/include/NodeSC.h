@@ -4,6 +4,7 @@
 #include "bumber_consts.h"
 #include "bumber_shared.h"
 #include "Message.h"
+#include "TaskSC.h"
 
 #include <set>
 #include <vector>
@@ -13,6 +14,8 @@
 namespace bbs{
 
 class NodeSC;
+
+
 
 struct CpuSC : public bbs_sc_module
 {
@@ -31,8 +34,8 @@ struct CpuSC : public bbs_sc_module
    sc_event wakeUp;   // Tells the CPU to try to reschedule or kill the task.
    NodeSC* parentNode;
 
-   CPUState state;
-   uint32_t taskIndex; // Current task index.
+   ResourceState state;
+   uint32_t taskIndex = 0; // Current task index.
    uint64_t taskStartTS; // Time that sc_time_stamp().value() gives;
 
 };
@@ -40,6 +43,7 @@ struct CpuSC : public bbs_sc_module
 class NodeSC : public bbs_sc_module
 {
 public:
+   friend class CpuSC;
    std::set <uint_fast32_t> busIDs;
    std::set <uint_fast32_t> linkIDs;
    sc_vector <CpuSC> cpus;

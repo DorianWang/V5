@@ -22,17 +22,19 @@ class QueuedPort
 
    std::deque <uint_fast32_t> mq; // Message index list
 public:
-   sc_event message_ready; // Notifies when a message is received and queue is empty
+   sc_event* message_ready; // Notifies when a message is received and queue is empty
 
    // Should be called by owning node, gives next message based on queuing discipline.
    // Timeout time is measured in ticks. Returns 0 on empty, 1 on success.
    int get_message(uint_fast32_t* message, QDiscipline curDisc = BS_NONE);
+   size_t num_queued() const { return mq.size(); };
 
    void receive_message(uint_fast32_t message);
 
    QueuedPort(size_t assoc_dst_node, size_t assoc_task, size_t stat, QDiscipline discipline = BS_FIFO) :
    assoc_dst_node(assoc_dst_node), assoc_task(assoc_task), stat(stat), discipline(discipline){
       // Just check the stat and initialize it I guess
+      message_ready = new sc_event;
    };
    // virtual ~QueuedPort(); // Use default instead?
 

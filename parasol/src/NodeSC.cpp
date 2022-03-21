@@ -1,5 +1,6 @@
 #include "NodeSC.h"
 
+#include "TaskSC.h"
 
 using bbs::CpuSC;
 using bbs::NodeSC;
@@ -7,16 +8,28 @@ using bbs::NodeSC;
 void CpuSC::checkTask()
 {
    // Checks info of current (possibly new) task and sets event pointers appropriately.
-   std::cout << sc_time_stamp() << " checkTask()!" << std::endl;
-   std::cout << BSname << " checkTask()!" << std::endl;
+   // std::cout << sc_time_stamp() << " checkTask()!" << std::endl;
+   // std::cout << BSname << " checkTask()!" << std::endl;
+   // wait();
    return;
 }
 
 void CpuSC::completeTask()
 {
+   static int i = 0;
    while(true){
+      // wait(complete);
+      if (taskIndex != 0){ // Not IDLE_TASK
+         TaskSC& task = bm_task_tab[taskIndex]; // Add a check before this.
+
+         // Most functions will need to be changed to account for new loop.
+         // I think it will end up as a callback of a callback of a callback...
+         // Luckily any functions used can call SystemC's wait() function.
+         task.code(this);
+         complete.notify(1, DEFAULT_TIME_TICK); // Tell the Node that the task has been executed.
+      }
+      std::cout << sc_time_stamp() << " @ CpuSC::completeTask() " << BSname << " " << basename() << std::endl;
       wait(complete);
-      // Do something like respond back to the message or execute the task.
    }
    return;
 }
@@ -29,7 +42,13 @@ void CpuSC::before_end_of_elaboration()
    SC_METHOD(checkTask);
    sensitive << wakeUp;
    dont_initialize();
-   printf("Before End of Elaboration!\n");
+
+   SC_THREAD(completeTask);
+   sensitive << complete;
+   dont_initialize();
+   complete.notify((index + parentNode->index * 127) * 131071 % 8191, DEFAULT_SMALLER_TICK);
+
+   // printf("Before End of Elaboration!\n");
    return;
 }
 

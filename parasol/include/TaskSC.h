@@ -7,21 +7,22 @@
 
 namespace bbs{
 
-struct CpuSC;
+struct TaskThread;
 
 struct TaskSC : public bbs_sc_module
 {
-   /** Default constructor */
-   TaskSC(std::string name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
+   TaskSC(const std::string& name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
       // Set up here.
    };
-   /** Default destructor */
-   virtual ~TaskSC();
-   std::string name;
-	ps_task_state_t state;			/* task state		*/
+   virtual ~TaskSC(){};
+
+   void init(uint_fast32_t node, uint_fast32_t host, void (*code)(void*), TaskState state = BS_READY){
+      this->node = node; this->host = host; this->code = code; this->state = state;
+   }
+
+	TaskState state;			/* task state		*/
 	long	node;				/* node location	*/
 	long	host;				/* user cpu index	*/
-	CpuSC	*hp;		/* host pointer		*/
 	void	(* code)(void *);		/* task code pointer	*/
 	long	upriority;			/* user task priority	*/
 	long	priority;			/* task priority	*/
@@ -50,11 +51,46 @@ struct TaskSC : public bbs_sc_module
 	double	pt_last;			/*the latest time that is preempted*/
 	double	pt_sum;				/*the total preemption time*/
 
-	/* The followings are for cfs scheduler*/
-	long 	group;				/* group index	*/
-	long 	group_id;			/* order of group */
-	sched_info	*si;		/* contain the cfs schedule information of the task */
+	/* The followings are for cfs scheduler, which is not implemented*/
+	// long 	group;				/* group index	*/
+	// long 	group_id;			/* order of group */
+	// sched_info	*si;		/* contain the cfs schedule information of the task */
 };
+
+struct TaskThread
+{
+   // Holds the information associated with a spawned thread. Very memory intensive, but it's the easiest way.
+   sc_event wakeUp; // Tells the task to wake up from waiting and check current state.
+   sc_event resume; // Tells the task to resume execution.
+   std::string parentName;
+   TaskState state;
+   size_t taskIndex; // Associated task index
+   size_t hostIndex; // Associated host(CPU) index
+   size_t nodeIndex; // Associated node index
+   TaskThread(std::string parentName, size_t nodeIndex, size_t hostIndex, size_t taskIndex, TaskState state = BS_READY)
+            : parentName(parentName), hostIndex(hostIndex), taskIndex(taskIndex), state(state){
+      sc_spawn_options opt;
+      std::cout << "Inside TaskThread" << std::endl;
+      TaskSC& task = bm_task_tab.at(taskIndex);
+      if (state == BS_COMPUTING) resume.notify(SC_ZERO_TIME); // Do not immediately run unless it is actually set to run.
+      // It is possible to keep the handle of the spawned thread if desired, but I don't need it for now.
+      sc_spawn(sc_bind(&TaskThread::run_task, this), task.BSname.c_str(), &opt);
+   };
+
+   void run_task(){
+      if (state == BS_READY || state == BS_SUSPENDED){
+         wait(resume);
+         state = BS_COMPUTING;
+      }
+      TaskSC& task = bm_task_tab.at(taskIndex);
+      task.code(reinterpret_cast<void*>(this)); // Use the pointer in library functions to get parent node and ports, etc.
+      state = BS_COMPLETE;
+   }
+
+};
+
+
+
 
 }
 

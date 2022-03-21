@@ -17,7 +17,6 @@ struct bs_message_t{
    uint_fast32_t sender;		/* sending task index		*/
    uint_fast32_t port;			/* port index		*/
    uint_fast32_t ack_port;		/* ack port index	*/
-   uint_fast32_t org_port;		/* original port index	*/
    uint_fast32_t c_code;		/* comm media code	*/
    uint_fast32_t blid;			/* bus/link index	*/
    uint_fast32_t type;			/* message type code	*/
@@ -25,13 +24,14 @@ struct bs_message_t{
    uint_fast32_t mid;			/* Unique message id, should this be 64 bit? Not sure exactly where this is set */
    uint_fast32_t did;			/* dye id, unimplemented		*/
    uint_fast32_t pri;			/* Message priority	*/
-   uint_fast64_t ts;		      // Message time stamp, generally obtained from sc_time_stamp().value()
+   uint_fast64_t ts;		      // Message time stamp, generally obtained from sc_time_stamp().value(), value default is picoseconds
    std::string text;				/* message text, maybe use a shared pointer instead?	*/
 };
 
 // Might be too much overhead, but I'll fix it later if that's what we need.
 class	bs_message_pool {
 public:
+   static uint_fast64_t nextMessageID;
    bs_message_pool(){
       storage.resize(baseSize);
       for (unsigned int i = 0; i < baseSize; i++){
@@ -40,13 +40,19 @@ public:
    };
    static constexpr int baseSize = 400;
    static constexpr int growSize = 200;
+
+   static uint_fast64_t get_next_mid(){ return bs_message_pool::nextMessageID++; };
    bs_message_t* get_mp(size_t index){
       if (index < storage.size())
          return storage.data();
       return nullptr;
    }; // This pointer may be invalidated if the vector resizes.
-   uint32_t get_mess(){
-      uint32_t result;
+   bs_message_t& operator[](size_t index){
+      return storage[index];
+   };
+   size_t size() const { return storage.size(); };
+   uint_fast32_t get_mess(){
+      uint_fast32_t result;
       if (unusedMessageIndex.empty()){
          size_t oldSize = storage.size();
          storage.resize(oldSize + growSize);
@@ -72,7 +78,6 @@ private:
 	std::vector <bs_message_t> storage;
 	std::queue <uint_fast32_t> unusedMessageIndex; // Only 4 billion messages, possible to need more?
 };
-
 
 extern bs_message_pool bs_mess_pool;
 

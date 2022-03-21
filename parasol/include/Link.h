@@ -21,33 +21,33 @@ class Link : public bbs_sc_module
    // Measured in units of length / SMALLER_TICK.
    // So transfering 0.5 length / TIME_TICK -> trate = 0.5 * TICK_CONV_MULT
    int_fast64_t trate;
+
+
+   sc_event message_transfered;
+public:
    size_t snode;   /* source node index	*/
    size_t dnode;   /* destination node index*/
 
-   sc_event message_transfered;
+   void transfer_message();
+   void push_message(uint_fast32_t mess_index);
+   uint_fast32_t pop_message();
 
-   public:
-
-      void transfer_message();
-      void push_message(uint_fast32_t mess_index);
-      uint_fast32_t pop_message();
-
-      Link(std::string name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
-         SC_HAS_PROCESS(Link);
-         if (trate < 0){
-            trate = 1; // Also put an error somewhere I guess.
-         }
-         SC_METHOD(transfer_message);
-         sensitive << message_transfered;
-         dont_initialize();
-      };
-
-      void init(int_fast64_t trate, size_t snode, size_t dnode){
-         this->trate = trate; this->snode = snode; this->dnode = dnode;
+   Link(std::string name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
+      SC_HAS_PROCESS(Link);
+      if (trate < 0){
+         trate = 1; // Also put an error somewhere I guess.
       }
+      SC_METHOD(transfer_message);
+      sensitive << message_transfered;
+      dont_initialize();
+   };
 
-   private:
-      std::queue <uint_fast32_t> mq;
+   void init(int_fast64_t trate, size_t snode, size_t dnode){
+      this->trate = trate; this->snode = snode; this->dnode = dnode;
+   }
+
+private:
+   std::queue <uint_fast32_t> mq;
 };
 
 

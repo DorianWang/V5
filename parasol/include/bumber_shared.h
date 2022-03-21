@@ -7,7 +7,7 @@
 #include <exception>
 #include <cstddef>   // Used for std::max_align_t
 
-#define NULL_INDEX ((size_t)(-1))
+
 
 /**
 Holds all the shared tables except for the message pool, as that is managed and shared in Message.h.
@@ -28,15 +28,13 @@ class bbs_sc_module : public sc_module {
    // Otherwise it just passes through name to sc_module.
 public:
    bbs_sc_module(sc_module_name name, size_t index) : sc_module(name), index(index){};
-   size_t get_index() const {return index;};
-   void set_index(size_t newIndex){index = newIndex;};
+   size_t get_index() const { return index; };
+   void set_index(size_t newIndex){ index = newIndex; };
    std::string BSname;
+
 protected:
    size_t index;
 };
-
-
-
 
 
 // Used for all SystemC modules, as they don't have copy or move constructors.
@@ -47,9 +45,6 @@ protected:
 // This might be overkill, but at least I had fun making it.
 
 template <class T> class bm_table_t {			/* dynamic table for bbs_sc_module type */
-
-
-
 public:
    static constexpr int PAGE_SIZE = 64; // Around 8 and a half 4KiB pages. Oh well.
 
@@ -81,10 +76,8 @@ public:
          throw std::invalid_argument("Cannot align object to memory!");
       sizeVal += sizeVal % alignVal; // In case of weird offset values, not sure if even allowed.
       char* page = new char[sizeVal * PAGE_SIZE];
-      std::cout << alignof(page) << std::endl;
       table.push_back(reinterpret_cast<T*>(page));
       numStored = 0; maxStored = PAGE_SIZE;
-      std::cout << table.back() << std::endl;
    };
    virtual ~bm_table_t(){
       size_t lastPage = numStored % PAGE_SIZE;
@@ -131,7 +124,6 @@ public:
          if (numStored == maxStored) add_page();
          std::string tempName = name + std::to_string(i);
          void* tempPtr = table[numStored / PAGE_SIZE] + (numStored % PAGE_SIZE);
-         std::cout << tempName << " " << tempPtr << std::endl;
          T* newObj = new(tempPtr) T(tempName, numStored);
          if (newObj == nullptr)
             throw std::runtime_error(namePrefix + " table: failed to allocate object in table!");// Panic and die.
@@ -140,7 +132,7 @@ public:
       return numStored - 1;
    };
 
-   T& get_entry(size_t index){
+   T& at(size_t index){
       if (index >= numStored){
          throw std::out_of_range(namePrefix + " table: get_entry index out of range!");
       }
@@ -176,6 +168,8 @@ extern bm_table_t <Bus> bm_bus_tab;
 extern bm_table_t <Link> bm_link_tab;
 extern bm_table_t <NodeSC> bm_node_tab;
 extern bm_table_t <TaskSC> bm_task_tab;
+
+extern std::vector <QueuedPort> bm_port_vec;
 
 // Still need a stats table, but it doesn't need to be hooked up to the SystemC engine.
 
