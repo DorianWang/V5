@@ -28,7 +28,10 @@ public:
    void killer(){
       wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
       bbs::TaskThread sendTester("Node0", 0, 1, 0);
-      sendTester.resume.notify(SC_ZERO_TIME);
+      sendTester.resume.notify(250, DEFAULT_TIME_TICK);
+      wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
+      sendTester.state = bbs::BS_PREEMPTED;
+      sendTester.wakeUp.notify(SC_ZERO_TIME);
       wait(1000000, DEFAULT_TIME_TICK); // 1 second
       std::cout << sc_time_stamp() << std::endl;
       sc_stop();
@@ -79,6 +82,10 @@ void code_tester(void* tvPtr)
    if (bbs::send_link(tvPtr, 0, 1, 0, 28000, "Hello!", 0) == 0){
       std::cout << "send_link success" << std::endl;
    }
+   int res = bbs::wait_for_message(tvPtr, 0, -1);
+   if (res == bbs::FUNC_INTR){
+      std::cout << "waiting for message was interrupted @ " << sc_time_stamp() << std::endl;
+   }
 
    wait(40, DEFAULT_TIME_TICK);
 }
@@ -88,14 +95,9 @@ void code_tester(void* tvPtr)
 int sc_main(int argc, char** argv)
 {
    using namespace bbs;
-   std::cout << "Hello World!" << std::endl;
-   std::cout << "Hello Sky!" << std::endl;
 
    TopTest testing("TopTester", 0);
-
-
-   std::cout << "Hello Sea!" << std::endl;
-   std::cout << "End of main!" << std::endl;
+   std::cout << "Starting simulation!" << std::endl;
    sc_start();
 
    return 0;
@@ -136,6 +138,7 @@ namespace bbs{
       }
       if (timeout < 0){
          tPtr->state = BS_BLOCKED;
+         std::cout << "Waiting for message at port @ " << sc_time_stamp() << std::endl;
          wait(*(port.message_ready) | tPtr->wakeUp);
          if (tPtr->state == BS_PREEMPTED) return FUNC_INTR; // Interrupted
          tPtr->state = BS_COMPUTING;

@@ -46,7 +46,7 @@ void CpuSC::before_end_of_elaboration()
    SC_THREAD(completeTask);
    sensitive << complete;
    dont_initialize();
-   complete.notify((index + parentNode->index * 127) * 131071 % 8191, DEFAULT_SMALLER_TICK);
+   // complete.notify((index + parentNode->index * 127) * 131071 % 8191, DEFAULT_SMALLER_TICK);
 
    // printf("Before End of Elaboration!\n");
    return;

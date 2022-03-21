@@ -33,18 +33,16 @@ public:
    uint_fast32_t pop_message();
 
    Link(std::string name, size_t index = NULL_INDEX) : bbs_sc_module(name.c_str(), index){
-      SC_HAS_PROCESS(Link);
       if (trate < 0){
          trate = 1; // Also put an error somewhere I guess.
       }
-      SC_METHOD(transfer_message);
-      sensitive << message_transfered;
-      dont_initialize();
    };
 
    void init(int_fast64_t trate, size_t snode, size_t dnode){
       this->trate = trate; this->snode = snode; this->dnode = dnode;
    }
+
+   void before_end_of_elaboration() override;
 
 private:
    std::queue <uint_fast32_t> mq;

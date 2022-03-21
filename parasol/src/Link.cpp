@@ -63,6 +63,13 @@ void Link::push_message(uint_fast32_t mess_index)
    }
 }
 
+void Link::before_end_of_elaboration()
+{
+   SC_HAS_PROCESS(Link);
+   SC_METHOD(transfer_message);
+   sensitive << message_transfered;
+   dont_initialize();
+}
 
 
 }
