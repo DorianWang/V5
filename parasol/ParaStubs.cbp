@@ -26,6 +26,7 @@
 		</Build>
 		<Compiler>
 			<Add option="-std=c++14" />
+			<Add option="-DSC_INCLUDE_DYNAMIC_PROCESSES" />
 			<Add directory="include" />
 			<Add directory="C:/Users/Admin/Documents/GitHub/V5/parasol/" />
 			<Add directory="../../../../Desktop/SystemC/include" />
@@ -42,6 +43,7 @@
 		<Unit filename="include/ansidecl.h" />
 		<Unit filename="include/bumber_consts.h" />
 		<Unit filename="include/bumber_shared.h" />
+		<Unit filename="include/bumbershoot.h" />
 		<Unit filename="include/carrier.h" />
 		<Unit filename="include/drand48.h" />
 		<Unit filename="include/genesis.h" />

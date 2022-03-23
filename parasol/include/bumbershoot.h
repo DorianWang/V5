@@ -25,22 +25,33 @@ namespace bbs{
    int bs_connect_bus(uint_fast32_t node);
    int bs_disconnect_bus(uint_fast32_t node);
 
-   size_t bs_build_message(); // This is mostly for external callers so they don't need bs_message_t
+   // This is mostly for external callers so they don't need bs_message_t
+   // Currently unused, but could be used later.
+   size_t bs_build_message(
+      uint_fast32_t type,			/* message type code	*/
+      uint_fast32_t length,		/* message size, used for bus_delay and link_delay	*/
+      uint_fast32_t mid,			/* Unique message id, should this be 64 bit? Not sure exactly where this is set */
+      uint_fast32_t did,			/* dye id, unimplemented		*/
+      uint_fast32_t pri,			/* Message priority	*/
+      std::string text				/* message text, maybe use a shared pointer instead?	*/);
 
    // How much can the old stats struct be reused?
    int bs_build_stat();
 
+   // Assign port to task, and if task is associated with a node, change port target to node.
+   int assign_port(uint_fast32_t port, uint_fast32_t task);
 
-   int assign_port();
-
-
-
+   // Waits of a message at the port. Returns FUNC_GOOD when a message is available.
    int wait_for_message(void* tvPtr, uint_fast32_t portIndex, int timeout);
+   // Fails if no message at the port.
+   int get_message_from_port(void* tvPtr, uint_fast32_t port, uint_fast32_t* mess);
 
+   // Creates and sends a message using the specified link/bus to the target port
    int send_link(void* tvPtr, uint_fast32_t link, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort);
    int send_bus(void* tvPtr, uint_fast32_t bus, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort);
 
 
+   void bs_find_host(void* tvPtr);
 
 
 }

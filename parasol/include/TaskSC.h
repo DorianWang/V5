@@ -21,8 +21,8 @@ struct TaskSC : public bbs_sc_module
    }
 
 	TaskState state;			/* task state		*/
-	long	node;				/* node location	*/
-	long	host;				/* user cpu index	*/
+	size_t	node;				/* node location	*/
+	size_t	host;				/* user cpu index	*/
 	void	(* code)(void *);		/* task code pointer	*/
 	long	upriority;			/* user task priority	*/
 	long	priority;			/* task priority	*/
@@ -30,7 +30,7 @@ struct TaskSC : public bbs_sc_module
 	long	parent;				/* task parent index	*/
 	long	son;				/* task son index	*/
 	long	sibling;			/* task sibling index	*/
-	long	port_list;			/* port list 		*/
+	std::vector <uint32_t>	port_list;	/* All associated ports, used to track ports for moves	*/
 	long	bport;				/* broadcast port index	*/
 	long	blind_port;			/* blind port index	*/
 	long	wport;				/* waiting port index	*/

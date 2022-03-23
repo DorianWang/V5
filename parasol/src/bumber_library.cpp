@@ -217,6 +217,7 @@ namespace bbs{
       Bus& bref = bm_bus_tab[bus];
       bref.add_node(node);
       bm_node_tab[node].busIDs.insert(bus);
+      return FUNC_GOOD;
    }
 
    int bs_disconnect_bus(uint_fast32_t bus, uint_fast32_t node)
@@ -234,6 +235,41 @@ namespace bbs{
          return FUNC_FAIL;
       }
    }
+
+   // Currently unused, but could be used later.
+   size_t bs_build_message(
+   uint_fast32_t type,			/* message type code	*/
+   uint_fast32_t length,		/* message size, used for bus_delay and link_delay	*/
+   uint_fast32_t mid,			/* Unique message id, should this be 64 bit? Not sure exactly where this is set */
+   uint_fast32_t did,			/* dye id, unimplemented		*/
+   uint_fast32_t pri,			/* Message priority	*/
+   std::string text				/* message text, maybe use a shared pointer instead?	*/)
+   {
+      size_t index = bs_mess_pool.get_mess();
+      bs_message_t& mess = bs_mess_pool[index];
+      mess.ts = sc_time_stamp().value();
+      mess.type = type;
+      mess.mid = mid;
+      mess.pri = pri;
+      mess.text = text;
+      return index;
+   }
+
+   int assign_port(uint_fast32_t port, uint_fast32_t task)
+   {
+      if (port >= bm_port_vec.size()) return FUNC_ERR;
+      if (task >= bm_task_tab.size()) return FUNC_ERR;
+      QueuedPort& pref = bm_port_vec[port];
+      TaskSC& tref = bm_task_tab[task];
+      if (tref.node < bm_node_tab.size()){
+         pref.set_associated_node(tref.node);
+      }
+      pref.set_associated_task(task);
+      tref.port_list.push_back(port);
+
+      return FUNC_GOOD;
+   }
+
 
 
    // timeout is an integer of units DEFAULT_SMALLER_TICK
@@ -270,12 +306,15 @@ namespace bbs{
    }
 
    // If there is no message at the port, returns a timeout value.
-   int get_message_from_port(void* tvPtr, uint_fast32_t port, bs_message_t* mess)
+   int get_message_from_port(void* tvPtr, uint_fast32_t port, uint_fast32_t* mess)
    {
       TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
       if (port >= bm_port_vec.size()) return FUNC_ERR;
       if (tPtr->nodeIndex != bm_port_vec[port].get_associated_node()) return FUNC_FAIL; // Does not own port.
-      return 0; // TODO
+      QueuedPort& pref = bm_port_vec[port];
+      if (pref.num_queued() == 0) return FUNC_FAIL;
+      pref.get_message(mess);
+      return FUNC_GOOD;
    }
 
    int send_link(void* tvPtr, uint_fast32_t link, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort)
@@ -302,16 +341,20 @@ namespace bbs{
       TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
       if (busRef.find_node(tPtr->nodeIndex) == false) return FUNC_FAIL; // Sender not on bus.
       if (busRef.find_node(bm_port_vec[port].get_associated_node()) == false) return FUNC_FAIL; // Port not on bus.
-      uint_fast32_t mid = bs_mess_pool.get_mess();
-      bs_mess_pool[mid] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_BUS, bus, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
-      busRef.push_message(mid);
+      uint_fast32_t index = bs_mess_pool.get_mess();
+      bs_mess_pool[index] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_BUS, bus, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
+      busRef.push_message(index);
       return FUNC_GOOD;
    }
 
 
 
 
-
+   void bs_find_host(void* tvPtr)
+   {
+      TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
+      return;
+   }
 
 
 
