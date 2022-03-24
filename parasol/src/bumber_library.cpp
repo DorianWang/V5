@@ -90,7 +90,6 @@ void code_tester(void* tvPtr)
       std::cout << "send_link success" << std::endl;
    }
    int res = bbs::wait_for_message(tvPtr, 0, -1);
-   std::cout << "Res: " << res << std::endl;
    if (res != bbs::FUNC_GOOD){
       std::cout << "waiting for message was interrupted @ " << sc_time_stamp() << std::endl;
    }
@@ -114,7 +113,7 @@ void return_tester(void* tvPtr)
       std::string received = bbs::bs_mess_pool[mres].text;
       std::string tosend = received + " Hey There!";
       std::cout << "Received message: " << received << ", Sending message: " << tosend << std::endl;
-      if (bbs::send_bus(tvPtr, 0, 0, 0, 2800, received, 0) == bbs::FUNC_GOOD){
+      if (bbs::send_bus(tvPtr, 0, 0, 0, 2800, tosend, 0) == bbs::FUNC_GOOD){
          std::cout << sc_time_stamp() << " @ send_bus success" << std::endl;
       }
    }
