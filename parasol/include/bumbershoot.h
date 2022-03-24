@@ -6,6 +6,7 @@
 
 
 void code_tester(void* tPtr);
+void return_tester(void* tPtr);
 
 namespace bbs{
 
@@ -22,7 +23,7 @@ namespace bbs{
 
 
    int bs_connect_link(uint_fast32_t src, uint_fast32_t dst);
-   int bs_connect_bus(uint_fast32_t node);
+   int bs_connect_bus(uint_fast32_t bus, uint_fast32_t node);
    int bs_disconnect_bus(uint_fast32_t node);
 
    // This is mostly for external callers so they don't need bs_message_t

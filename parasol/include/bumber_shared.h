@@ -43,7 +43,6 @@ protected:
 // Then the pointers to these memory segments are stored. Each sc_module is around 550 bytes.
 // I guess I'll have to delete these things too, but that'll be for later.
 // This might be overkill, but at least I had fun making it.
-
 template <class T> class bm_table_t {			/* dynamic table for bbs_sc_module type */
 public:
    static constexpr int PAGE_SIZE = 64; // Around 8 and a half 4KiB pages. Oh well.

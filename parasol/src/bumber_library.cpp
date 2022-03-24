@@ -28,11 +28,11 @@ public:
    void killer(){
       wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
       bbs::TaskThread sendTester("Node0", 0, 1, 0);
+      bbs::TaskThread recTester("Node2", 2, 3, 1);
       sendTester.resume.notify(250, DEFAULT_TIME_TICK);
+      recTester.resume.notify(100, DEFAULT_TIME_TICK);
       wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
-      sendTester.state = bbs::BS_PREEMPTED;
-      sendTester.wakeUp.notify(SC_ZERO_TIME);
-      wait(1000000, DEFAULT_TIME_TICK); // 1 second
+      wait(4000000, DEFAULT_TIME_TICK); // 1 second
       std::cout << sc_time_stamp() << std::endl;
       sc_stop();
    };
@@ -42,8 +42,6 @@ public:
 
       bbs::bm_port_vec.emplace_back(0);
       bbs::bm_port_vec.emplace_back(1);
-      bbs::bm_port_vec.emplace_back(2);
-      bbs::bm_port_vec.emplace_back(3);
       bbs::bm_port_vec[0].init(0, 0, 0);
       bbs::bm_port_vec[1].init(2, 1, 0);
 
@@ -52,13 +50,20 @@ public:
       bbs::bm_link_tab[0].init(5, 0, 2); // Link from 0 -> 2
       bbs::bm_link_tab[1].init(2, 3, 1); // Link from 3 -> 1
 
+      bbs::bm_bus_tab.add_entry();
+      bbs::bm_bus_tab[0].init(200);
+
       bbs::bm_node_tab[0].init(2, 1.0, 1.0, bbs::BS_FIFO, 0);
       bbs::bm_node_tab[1].init(1, 1.0, 1.0, bbs::BS_FIFO, 0);
       bbs::bm_node_tab[2].init(4, 1.0, 1.0, bbs::BS_FIFO, 0);
       bbs::bm_node_tab[3].init(1, 1.0, 1.0, bbs::BS_FIFO, 0);
 
-      bbs::bm_task_tab.add_entry();
+      bbs::bs_connect_bus(0, 0);
+      bbs::bs_connect_bus(0, 2);
+
+      bbs::bm_task_tab.add_entry(2);
       bbs::bm_task_tab[0].init(0, 1, code_tester);
+      bbs::bm_task_tab[1].init(2, 3, return_tester);
       //for (bbs::NodeSC& iter : bbs::bm_node_tab){
       //   std::cout << iter.BSname << std::endl;
       //   iter.init(2, 1.2, 0.5, bbs::BS_FIFO, 1);
@@ -78,20 +83,47 @@ public:
 
 void code_tester(void* tvPtr)
 {
-   std::cout << "Testing code!" << std::endl;
+   std::cout << sc_time_stamp() << " @ Testing send!" << std::endl;
    bbs::TaskThread* tPtr = reinterpret_cast<bbs::TaskThread*>(tvPtr);
-   std::cout << tPtr->parentName << ": " << tPtr->taskIndex << std::endl;
+   // std::cout << tPtr->parentName << ": " << tPtr->taskIndex << std::endl;
    if (bbs::send_link(tvPtr, 0, 1, 0, 28000, "Hello!", 0) == bbs::FUNC_GOOD){
       std::cout << "send_link success" << std::endl;
    }
    int res = bbs::wait_for_message(tvPtr, 0, -1);
-   if (res == bbs::FUNC_INTR){
+   std::cout << "Res: " << res << std::endl;
+   if (res != bbs::FUNC_GOOD){
       std::cout << "waiting for message was interrupted @ " << sc_time_stamp() << std::endl;
    }
+   uint_fast32_t mres;
+   bbs::get_message_from_port(tvPtr, 0, &mres);
+   std::string received = bbs::bs_mess_pool[mres].text;
+   std::cout << sc_time_stamp() << " @ Received message: " << received << std::endl;
 
    wait(40, DEFAULT_TIME_TICK);
 }
 
+void return_tester(void* tvPtr)
+{
+   std::cout << sc_time_stamp() << " @ Testing receive -> return!" << std::endl;
+   bbs::TaskThread* tPtr = reinterpret_cast<bbs::TaskThread*>(tvPtr);
+   int res = bbs::wait_for_message(tvPtr, 1, -1); // Wait for message on port 1.
+   if (res == bbs::FUNC_GOOD){
+      std::cout << sc_time_stamp() << " @ Sending return message!" << std::endl;
+      uint_fast32_t mres;
+      bbs::get_message_from_port(tvPtr, 1, &mres);
+      std::string received = bbs::bs_mess_pool[mres].text;
+      std::string tosend = received + " Hey There!";
+      std::cout << "Received message: " << received << ", Sending message: " << tosend << std::endl;
+      if (bbs::send_bus(tvPtr, 0, 0, 0, 2800, received, 0) == bbs::FUNC_GOOD){
+         std::cout << sc_time_stamp() << " @ send_bus success" << std::endl;
+      }
+   }
+   else {
+      // std::cout << "Ow!" << std::endl;
+      std::cout << res << std::endl;
+      // It would wait if interrupted, or print errors if it was FUNC_ERR
+   }
+}
 
 // sc_main should probably be implemented in lqsim, and it should eventually call bs_run_bumbershoot()
 int sc_main(int argc, char** argv)
@@ -270,8 +302,6 @@ namespace bbs{
       return FUNC_GOOD;
    }
 
-
-
    // timeout is an integer of units DEFAULT_SMALLER_TICK
    // if timeout < 0, just wait for event.
    int wait_for_message(void* tvPtr, uint_fast32_t portIndex, int timeout)
@@ -290,7 +320,7 @@ namespace bbs{
       }
       if (timeout < 0){
          tPtr->state = BS_BLOCKED;
-         std::cout << "Waiting for message at port @ " << sc_time_stamp() << std::endl;
+         std::cout << "Waiting for message at port " << portIndex << " @ " << sc_time_stamp() << std::endl;
          wait(*(port.message_ready) | tPtr->wakeUp);
          if (tPtr->state == BS_PREEMPTED) return FUNC_INTR; // Interrupted
          tPtr->state = BS_COMPUTING;
@@ -326,9 +356,9 @@ namespace bbs{
       TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
       if (linkRef.snode != tPtr->nodeIndex) return FUNC_FAIL; // Does not own link.
       if (bm_port_vec[port].get_associated_node() != linkRef.dnode) return FUNC_FAIL; // Is not link end.
-      uint_fast32_t mid = bs_mess_pool.get_mess();
-      bs_mess_pool[mid] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_LINK, link, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
-      linkRef.push_message(mid);
+      uint_fast32_t index = bs_mess_pool.get_mess();
+      bs_mess_pool[index] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_LINK, link, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
+      linkRef.push_message(index);
       std::cout << "Sent a message using a link @ " << sc_time_stamp().value() / 1000 << "ns" << std::endl;
       return FUNC_GOOD;
    }
@@ -346,9 +376,6 @@ namespace bbs{
       busRef.push_message(index);
       return FUNC_GOOD;
    }
-
-
-
 
    void bs_find_host(void* tvPtr)
    {

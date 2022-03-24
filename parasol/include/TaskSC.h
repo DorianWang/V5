@@ -65,7 +65,7 @@ struct TaskThread
    size_t hostIndex; // Associated host(CPU) index
    size_t nodeIndex; // Associated node index
    TaskThread(std::string parentName, size_t nodeIndex, size_t hostIndex, size_t taskIndex, TaskState state = BS_READY)
-            : parentName(parentName), hostIndex(hostIndex), taskIndex(taskIndex), state(state){
+            : parentName(parentName), hostIndex(hostIndex), taskIndex(taskIndex), state(state), nodeIndex(nodeIndex){
       sc_spawn_options opt;
       TaskSC& task = bm_task_tab.at(taskIndex);
       if (state == BS_COMPUTING) resume.notify(SC_ZERO_TIME); // Do not immediately run unless it is actually set to run.
