@@ -17,64 +17,20 @@
 
 
 
-class TopTest : public sc_module{
+class TopModule : public sc_module{
 public:
+   sc_event endSim;
+   uint_fast64_t endValue;
 
-   sc_event testEvent;
-
-   void hello(){
-      std::cout << sc_time_stamp() << " @ Hello World!" << std::endl;
-   };
    void killer(){
-      wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
-      bbs::TaskThread sendTester("Node0", 0, 1, 0);
-      bbs::TaskThread recTester("Node2", 2, 3, 1);
-      sendTester.resume.notify(250, DEFAULT_TIME_TICK);
-      recTester.resume.notify(100, DEFAULT_TIME_TICK);
-      wait(1000, DEFAULT_TIME_TICK); // 1 millisecond
-      wait(4000000, DEFAULT_TIME_TICK); // 1 second
-      std::cout << sc_time_stamp() << std::endl;
+      wait(endValue, DEFAULT_TIME_TICK);
       sc_stop();
    };
-   TopTest(sc_module_name name, size_t index) : sc_module(name){
-      SC_HAS_PROCESS(TopTest);
-      bbs::bm_node_tab.add_entry(4);
-
-      bbs::bm_port_vec.emplace_back(0);
-      bbs::bm_port_vec.emplace_back(1);
-      bbs::bm_port_vec[0].init(0, 0, 0);
-      bbs::bm_port_vec[1].init(2, 1, 0);
-
-      bbs::bm_link_tab.add_entry(2);
-
-      bbs::bm_link_tab[0].init(5, 0, 2); // Link from 0 -> 2
-      bbs::bm_link_tab[1].init(2, 3, 1); // Link from 3 -> 1
-
-      bbs::bm_bus_tab.add_entry();
-      bbs::bm_bus_tab[0].init(200);
-
-      bbs::bm_node_tab[0].init(2, 1.0, 1.0, bbs::BS_FIFO, 0);
-      bbs::bm_node_tab[1].init(1, 1.0, 1.0, bbs::BS_FIFO, 0);
-      bbs::bm_node_tab[2].init(4, 1.0, 1.0, bbs::BS_FIFO, 0);
-      bbs::bm_node_tab[3].init(1, 1.0, 1.0, bbs::BS_FIFO, 0);
-
-      bbs::bs_connect_bus(0, 0);
-      bbs::bs_connect_bus(0, 2);
-
-      bbs::bm_task_tab.add_entry(2);
-      bbs::bm_task_tab[0].init(0, 1, code_tester);
-      bbs::bm_task_tab[1].init(2, 3, return_tester);
-      //for (bbs::NodeSC& iter : bbs::bm_node_tab){
-      //   std::cout << iter.BSname << std::endl;
-      //   iter.init(2, 1.2, 0.5, bbs::BS_FIFO, 1);
-      //}
-
-      testEvent.notify(12, DEFAULT_TIME_TICK);
-      SC_METHOD(hello);
-      sensitive << testEvent;
+   TopModule(sc_module_name name, uint_fast64_t endValue) : sc_module(name), endValue(endValue){
+      SC_HAS_PROCESS(TopModule);
+      SC_METHOD(killer);
+      sensitive << endSim;
       dont_initialize();
-
-      SC_THREAD(killer);
    }
 };
 
@@ -129,7 +85,7 @@ int sc_main(int argc, char** argv)
 {
    using namespace bbs;
 
-   TopTest testing("TopTester", 0);
+   TopModule testing("TopModule", 0);
    std::cout << "Starting simulation!" << std::endl;
    sc_start();
 
@@ -146,40 +102,52 @@ namespace bbs{
    bm_table_t <NodeSC> bm_node_tab("Node");
    bm_table_t <TaskSC> bm_task_tab("Task");
    std::vector <QueuedPort> bm_port_vec;
+   std::vector <bs_stat_t> bm_stat_vec;
 
-   // So basically this function should be what the ps_run_parasol function was.
-   int bs_run_bumbershoot()
+   // Runs Bumbershoot using supplied parameters and flags.
+   // Similar but not the same as ps_run_parasol().
+   // Should be run after building the simulation model.
+   int bs_run_bumbershoot(
+      unsigned int duration,	// simulation duration, in units of DEFAULT_TIME_TICK (default ~1 h)
+      int seed,		// random number seed
+      int flags		// run-time flags, currently unused
+   )
    {
+      if (duration <= 0) return FUNC_ERR;
+      if (seed < 0) return FUNC_ERR;
+
+      TopModule watchdog("Reaper", duration);
+      srand(seed);
+
       return 0;
    }
 
 
-   int bs_build_node(uint_fast32_t* index, const std::string& name, int ncpus, double speed,
+   size_t bs_build_node(const std::string& name, int ncpus, double speed,
                      double quantum, QDiscipline discipline, int statFlag)
    {
-      if (index == nullptr) return FUNC_ERR;
-      if (ncpus < 1 || speed < 0.0 || quantum < 0.0) return FUNC_ERR;
-      if (name.length() == 0){
-         bm_node_tab.add_entry();
+      size_t index;
+      if (ncpus < 1 || speed < 0.0 || quantum < 0.0) return NULL_INDEX;
+      if (name.length()){
+         index = bm_node_tab.add_entry(name);
       }
       else {
-         bm_node_tab.add_entry(name);
+         index = bm_node_tab.add_entry();
       }
       NodeSC& temp = bm_node_tab.back();
-      *index = temp.get_index();
       temp.init(ncpus, speed, quantum, discipline, statFlag);
-      return FUNC_GOOD;
+      return index;
    }
 
-   int bs_build_port(int stat, size_t dst_node, size_t assoc_task, QDiscipline discipline)
+   size_t bs_build_port(int stat, size_t dst_node, size_t assoc_task, QDiscipline discipline)
    {
       size_t newIndex = bm_port_vec.size();
       bm_port_vec.emplace_back(newIndex);
       bm_port_vec[newIndex].init(dst_node, assoc_task, stat, discipline);
-      return FUNC_GOOD;
+      return newIndex;
    }
 
-   int bs_build_bus(std::string name, int_fast64_t trate, QDiscipline discipline)
+   size_t bs_build_bus(std::string name, int_fast64_t trate, QDiscipline discipline)
    {
       if (name.length()){
          bm_bus_tab.add_entry(name);
@@ -189,10 +157,10 @@ namespace bbs{
       }
       Bus& newBus = bm_bus_tab.back();
       newBus.init(trate, discipline);
-      return FUNC_GOOD;
+      return bm_bus_tab.size() - 1;
    }
 
-   int bs_build_link(std::string name, int_fast64_t trate)
+   size_t bs_build_link(std::string name, int_fast64_t trate)
    {
       if (name.length()){
          bm_link_tab.add_entry(name);
@@ -202,10 +170,10 @@ namespace bbs{
       }
       Link& newLink = bm_link_tab.back();
       newLink.init(trate, NULL_INDEX, NULL_INDEX);
-      return FUNC_GOOD;
+      return bm_link_tab.size() - 1;
    }
 
-   int bs_build_task(std::string name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*))
+   size_t bs_build_task(std::string name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*))
    {
       if (name.length()){
          bm_task_tab.add_entry(name);
@@ -215,7 +183,7 @@ namespace bbs{
       }
       TaskSC& newTask = bm_task_tab.back();
       newTask.init(node, host, code);
-      return FUNC_GOOD;
+      return bm_task_tab.size() - 1;
    }
 
    int bs_assign_task(uint_fast32_t node, uint_fast32_t task, uint_fast32_t host)
@@ -376,17 +344,46 @@ namespace bbs{
       return FUNC_GOOD;
    }
 
+   int send_direct(void* tvPtr, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort)
+   {
+      if (port >= bm_port_vec.size()) return FUNC_ERR;
+      uint_fast32_t index = bs_mess_pool.get_mess();
+      TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
+      bs_mess_pool[index] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_MAGIC, port, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
+      bm_port_vec[port].receive_message(index);
+      return FUNC_GOOD;
+   }
+
    void bs_find_host(void* tvPtr)
    {
       TaskThread* tPtr = reinterpret_cast<TaskThread*>(tvPtr);
+      if (tPtr->nodeIndex >= bm_node_tab.size()) return;
+      if (tPtr->state != BS_READY){
+         return; // Should already be assigned to a CPU.
+      }
+      if (tPtr->hostIndex != NULL_INDEX){
+         return; // Already assigned to a CPU, also give an error.
+      }
+      NodeSC& node = bm_node_tab[tPtr->nodeIndex];
+      for (size_t i = 0; i < node.cpus.size(); i++){
+         if (node.cpus[i].state == BS_IDLE){
+            node.cpus[i].state = BS_BUSY;
+            tPtr->hostIndex = i;
+            tPtr->resume.notify(SC_ZERO_TIME);
+            return;
+         }
+      }
       return;
    }
 
 
 
+   size_t bs_build_stat(StatType type)
+   {
+      size_t statID; //
+   }
 
-
-
+   int bs_record_stat(size_t stat, uint_fast64_t timeDelta);
 
 
 

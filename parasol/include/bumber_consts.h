@@ -38,7 +38,7 @@ enum TaskState{
    BS_COMPUTING,  // Currently executing
    BS_BLOCKED,    // Waiting on a blocking call
    BS_PREEMPTED,  // Preempted by another task, will set back to BS_READY or BS_SUSPENDED.
-   BS_SUSPENDED,  // Thread is not executing and is waiting to resume. Currently not different from BS_READY.
+   BS_SUSPENDED,  // Thread is not executing and is waiting to resume. Still assigned to CPU.
    BS_COMPLETE    // Thread has finished execution, and would need to be reset before executing again.
 };
 
@@ -54,6 +54,12 @@ enum MessCCode{   // What was the source of the message
    BS_BUS,
    BS_LINK,
    BS_MAGIC
+};
+
+enum StatType{
+   BS_SAMPLE,
+   BS_VARIABLE,
+   BS_RATE
 };
 
 }

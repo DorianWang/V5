@@ -28,17 +28,17 @@
 //
 //=======================================================================
 #include <node.h>
- 
+
 //=======================================================================
 // function:	PS_UserNode:: PS_UserNode(const char*,int,double,double,
-//		    int,int) 
+//		    int,int)
 // description: PS_UserNode constructor.
 //=======================================================================
-PS_UserNode:: PS_UserNode(const char *name, long ncpus, double speed, 
+PS_UserNode:: PS_UserNode(const char *name, long ncpus, double speed,
     double quantum, long discipline, int stat_flags)
     : PS_AbstractNode(ps_build_node(name, ncpus, speed, quantum, discipline,
     stat_flags))
-
+   // I guess the next thing to do is change these.
 {
 	if (id() == SYSERR)
 		Abort(" PS_UserNode constructor failed");

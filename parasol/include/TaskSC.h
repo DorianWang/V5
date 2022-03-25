@@ -3,6 +3,7 @@
 
 #include "bumber_consts.h"
 #include "bumber_shared.h"
+#include "bumbershoot.h"
 #include "para_types.h"
 
 namespace bbs{
@@ -16,9 +17,7 @@ struct TaskSC : public bbs_sc_module
    };
    virtual ~TaskSC(){};
 
-   void init(uint_fast32_t node, uint_fast32_t host, void (*code)(void*), TaskState state = BS_READY){
-      this->node = node; this->host = host; this->code = code; this->state = state;
-   }
+   void init(uint_fast32_t node, uint_fast32_t host, void (*code)(void*), TaskState state = BS_READY);
 
 	TaskState state;			/* task state		*/
 	size_t	node;				/* node location	*/
@@ -31,7 +30,7 @@ struct TaskSC : public bbs_sc_module
 	long	son;				/* task son index	*/
 	long	sibling;			/* task sibling index	*/
 	std::vector <uint32_t>	port_list;	/* All associated ports, used to track ports for moves	*/
-	long	bport;				/* broadcast port index	*/
+	uint32_t bport;			/* broadcast port index	*/
 	long	blind_port;			/* blind port index	*/
 	long	wport;				/* waiting port index	*/
 	long	lock_list;			/* lock list 		*/

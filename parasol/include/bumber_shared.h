@@ -37,11 +37,36 @@ protected:
 };
 
 
+struct bs_stat_t {			/* statistics struct	*/
+   std::string	name;				/* statistic name	*/
+   double resid;				/* non-rounding resid	*/
+   // What does resid mean?
+   // It seems to be residual, I guess for extra precision?
+   union {
+      struct {
+         long count;		/* sample count		*/
+         double sum;		/* sample sum		*/
+      } sam;
+      struct {
+         double start;		/* start time		*/
+         double old_value;	/* previous value	*/
+         double old_time;	/* previous time	*/
+         double integral;	/* variable integral	*/
+      } var;
+      struct {
+         double start;	/* start time		*/
+         long count;		/* # observations	*/
+      } rat;
+   } values;
+   StatType type;		/* statistic type	*/
+};
+
 // Used for all SystemC modules, as they don't have copy or move constructors.
 // Unfortunately the base sc_vector class does not appear to be resizable.
 // This container stores contiguous memory segments equal to PAGE_SIZE input objects.
 // Then the pointers to these memory segments are stored. Each sc_module is around 550 bytes.
 // I guess I'll have to delete these things too, but that'll be for later.
+// The next version of SystemC proposes a resizable sc_vector, so this will be obsolete then.
 // This might be overkill, but at least I had fun making it.
 template <class T> class bm_table_t {			/* dynamic table for bbs_sc_module type */
 public:
@@ -151,11 +176,7 @@ public:
    iterator end() {return bm_table_t_IType(*this, numStored);}
    const iterator end() const {return bm_table_t_IType(&this, numStored);}
 
-
    // Currently no entry removal. This would be rather complicated and would need much more code.
-
-
-
 protected:
    size_t alignVal;
    size_t sizeVal;
@@ -172,6 +193,7 @@ extern bm_table_t <NodeSC> bm_node_tab;
 extern bm_table_t <TaskSC> bm_task_tab;
 
 extern std::vector <QueuedPort> bm_port_vec;
+extern std::vector <bs_stat_t> bm_stat_vec;
 
 // Still need a stats table, but it doesn't need to be hooked up to the SystemC engine.
 
@@ -179,23 +201,12 @@ int bs_run_bumbershoot(); // Check if it actually compiles.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
 #endif // BUMB_SHARED_H_INCLUDED
+
+
+
+
 
 
 

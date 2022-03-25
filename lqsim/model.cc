@@ -120,95 +120,95 @@ Model::~Model()
 int
 Model::solve( solve_using run_function, const std::string& input_file_name, LQIO::DOM::Document::InputFormat input_format, const std::string& output_file_name, LQIO::DOM::Document::OutputFormat output_format, const LQIO::DOM::Pragma& pragmas )
 {
-    LQIO::io_vars.reset();
+   LQIO::io_vars.reset();
 
-    /* load the model into the DOM document.  */
+   /* load the model into the DOM document.  */
 
-    unsigned int status = 0;
-    LQIO::DOM::Document* document = LQIO::DOM::Document::load( input_file_name, input_format, status, false );
+   unsigned int status = 0;
+   LQIO::DOM::Document* document = LQIO::DOM::Document::load( input_file_name, input_format, status, false );
 
-    /* Make sure we got a document */
+   /* Make sure we got a document */
 
-    if ( document == nullptr || LQIO::io_vars.anError() ) return INVALID_INPUT;
+   if ( document == nullptr || LQIO::io_vars.anError() ) return INVALID_INPUT;
 
-    if ( LQIO::Spex::numberOfInputVariables() == 0 ) {
-	if ( LQIO::Spex::__no_header ) {
-	    std::cerr << LQIO::io_vars.lq_toolname << ": --no-header is ignored for " << input_file_name << "." << std::endl;
-	}
-	if ( LQIO::Spex::__print_comment ) {
-	    std::cerr << LQIO::io_vars.lq_toolname << ": --print-comment is ignored for " << input_file_name << "." << std::endl;
-	}
-    }
+   if ( LQIO::Spex::numberOfInputVariables() == 0 ) {
+      if ( LQIO::Spex::__no_header ) {
+         std::cerr << LQIO::io_vars.lq_toolname << ": --no-header is ignored for " << input_file_name << "." << std::endl;
+      }
+      if ( LQIO::Spex::__print_comment ) {
+         std::cerr << LQIO::io_vars.lq_toolname << ": --print-comment is ignored for " << input_file_name << "." << std::endl;
+      }
+   }
 
-    Model model( document, input_file_name, output_file_name, output_format );
-    LQX::Program * program = nullptr;
-    FILE * output = nullptr;
-    try {
-	if ( !model.prepare() ) throw std::runtime_error( "Model::prepare" );
+   Model model( document, input_file_name, output_file_name, output_format );
+   LQX::Program * program = nullptr;
+   FILE * output = nullptr;
+   try {
+      if ( !model.prepare() ) throw std::runtime_error( "Model::prepare" );
 
-	document->mergePragmas( pragmas.getList() );       /* Save pragmas */
+      document->mergePragmas( pragmas.getList() );       /* Save pragmas */
 
 #if BUG_313
 	extend();			/* convert entry think times	*/
 #endif
 
-	/* We can simply run if there's no control program */
+      /* We can simply run if there's no control program */
 
-	program = document->getLQXProgram();
-	if ( program ) {
-	    /* Attempt to run the program */
-	    document->registerExternalSymbolsWithProgram(program);
-	    program->getEnvironment()->getMethodTable()->registerMethod(new SolverInterface::Solve(document, run_function, &model));
-	    LQIO::RegisterBindings(program->getEnvironment(), document);
+      program = document->getLQXProgram();
+      if ( program ) {
+         /* Attempt to run the program */
+         document->registerExternalSymbolsWithProgram(program);
+         program->getEnvironment()->getMethodTable()->registerMethod(new SolverInterface::Solve(document, run_function, &model));
+         LQIO::RegisterBindings(program->getEnvironment(), document);
 
-	    if ( !output_file_name.empty() && output_file_name != "-" && LQIO::Filename::isRegularFile(output_file_name) ) {
-		output = fopen( output_file_name.c_str(), "w" );
-		if ( !output ) {
-		    solution_error( LQIO::ERR_CANT_OPEN_FILE, output_file_name.c_str(), strerror( errno ) );
-		    status = FILEIO_ERROR;
-		} else {
-		    program->getEnvironment()->setDefaultOutput( output );	/* Default is stdout */
-		}
-	    }
+         if ( !output_file_name.empty() && output_file_name != "-" && LQIO::Filename::isRegularFile(output_file_name) ) {
+            output = fopen( output_file_name.c_str(), "w" );
+            if ( !output ) {
+               solution_error( LQIO::ERR_CANT_OPEN_FILE, output_file_name.c_str(), strerror( errno ) );
+               status = FILEIO_ERROR;
+            } else {
+               program->getEnvironment()->setDefaultOutput( output );	/* Default is stdout */
+            }
+         }
 
-	    if ( status == 0 ) {
-		/* Invoke the LQX program itself */
-		if ( !program->invoke() ) {		/* Run simulation	*/
-		    LQIO::solution_error( LQIO::ERR_LQX_EXECUTION, input_file_name.c_str() );
-		    status = INVALID_INPUT;
-		} else if ( !SolverInterface::Solve::solveCallViaLQX ) {
-		    /* There was no call to solve the LQX */
-		    LQIO::solution_error( LQIO::ADV_LQX_IMPLICIT_SOLVE, input_file_name.c_str() );
-		    std::vector<LQX::SymbolAutoRef> args;
-		    SolverInterface::Solve::implicitSolve = true;
-		    program->getEnvironment()->invokeGlobalMethod("solve", &args);
-		}
-	    }
+         if ( status == 0 ) {
+         /* Invoke the LQX program itself */
+            if ( !program->invoke() ) {		/* Run simulation	*/
+               LQIO::solution_error( LQIO::ERR_LQX_EXECUTION, input_file_name.c_str() );
+               status = INVALID_INPUT;
+            } else if ( !SolverInterface::Solve::solveCallViaLQX ) {
+               /* There was no call to solve the LQX */
+               LQIO::solution_error( LQIO::ADV_LQX_IMPLICIT_SOLVE, input_file_name.c_str() );
+               std::vector<LQX::SymbolAutoRef> args;
+               SolverInterface::Solve::implicitSolve = true;
+               program->getEnvironment()->invokeGlobalMethod("solve", &args);
+            }
+         }
 
-	} else {
-	    /* There is no control flow program, check for $-variables */
-	    if ( document->getSymbolExternalVariableCount() != 0 ) {
-		LQIO::solution_error( LQIO::ERR_LQX_VARIABLE_RESOLUTION, input_file_name.c_str() );
-		status = INVALID_INPUT;
-	    } else if ( !model.start() ) {		/* Run simulation	*/
-		status = INVALID_OUTPUT;
-	    }
-	}
-    }
-    catch ( const std::domain_error& e ) {
-	status = INVALID_INPUT;
-    }
-    catch ( const std::runtime_error& e ) {
-	status = INVALID_INPUT;
-    }
+      } else {
+      /* There is no control flow program, check for $-variables */
+         if ( document->getSymbolExternalVariableCount() != 0 ) {
+            LQIO::solution_error( LQIO::ERR_LQX_VARIABLE_RESOLUTION, input_file_name.c_str() );
+            status = INVALID_INPUT;
+         } else if ( !model.start() ) {		/* Run simulation	*/
+            status = INVALID_OUTPUT;
+         }
+      }
+   }
+   catch ( const std::domain_error& e ) {
+      status = INVALID_INPUT;
+   }
+   catch ( const std::runtime_error& e ) {
+      status = INVALID_INPUT;
+   }
 
     /* Clean up */
 
-    if ( output ) fclose( output );
-    if ( program ) delete program;
-    if ( document ) delete document;
+   if ( output ) fclose( output );
+   if ( program ) delete program;
+   if ( document ) delete document;
 
-    return status;
+   return status;
 }
 
 
@@ -219,121 +219,120 @@ Model::solve( solve_using run_function, const std::string& input_file_name, LQIO
 bool
 Model::prepare()
 {
-    if ( __print_interval == 0 ) {
-	__print_interval = _document->getModelPrintIntervalValue();
-    }
-    Pragma::set( _document->getPragmaList() );
-    LQIO::io_vars.severity_level = Pragma::__pragmas->severity_level();
-    LQIO::Spex::__print_comment = !Pragma::__pragmas->spex_comment();
-    LQIO::Spex::__no_header = !Pragma::__pragmas->spex_header();
+   if ( __print_interval == 0 ) {
+      __print_interval = _document->getModelPrintIntervalValue();
+   }
+   Pragma::set( _document->getPragmaList() );
+   LQIO::io_vars.severity_level = Pragma::__pragmas->severity_level();
+   LQIO::Spex::__print_comment = !Pragma::__pragmas->spex_comment();
+   LQIO::Spex::__no_header = !Pragma::__pragmas->spex_header();
 
 
-    /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 1: Add Processors] */
+   /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 1: Add Processors] */
 
-    const std::map<std::string,LQIO::DOM::Processor*>& processorList = _document->getProcessors();
-    std::for_each( processorList.begin(), processorList.end(), Processor::add );
+   const std::map<std::string,LQIO::DOM::Processor*>& processorList = _document->getProcessors();
+   std::for_each( processorList.begin(), processorList.end(), Processor::add );
 
-    /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 1.5: Add Groups] */
+   /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 1.5: Add Groups] */
 
-    const std::map<std::string,LQIO::DOM::Group*>& groups = _document->getGroups();
-    std::for_each( groups.begin(), groups.end(), Group::add );
+   const std::map<std::string,LQIO::DOM::Group*>& groups = _document->getGroups();
+   std::for_each( groups.begin(), groups.end(), Group::add );
 
-    /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 2: Add Tasks/Entries] */
+   /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 2: Add Tasks/Entries] */
 
-    /* In the DOM, tasks have entries, but here entries need to go first */
-    const std::map<std::string,LQIO::DOM::Task*>& taskList = _document->getTasks();
+   /* In the DOM, tasks have entries, but here entries need to go first */
+   const std::map<std::string,LQIO::DOM::Task*>& taskList = _document->getTasks();
 
-    /* Add all of the tasks we will be needing */
-    for ( std::map<std::string,LQIO::DOM::Task*>::const_iterator nextTask = taskList.begin(); nextTask != taskList.end(); ++nextTask ) {
-	LQIO::DOM::Task* task = nextTask->second;
-	std::vector<LQIO::DOM::Entry*>::const_iterator nextEntry;
-	std::vector<LQIO::DOM::Entry*> activityEntries;
+   /* Add all of the tasks we will be needing */
+   for ( std::map<std::string,LQIO::DOM::Task*>::const_iterator nextTask = taskList.begin(); nextTask != taskList.end(); ++nextTask ) {
+      LQIO::DOM::Task* task = nextTask->second;
+      std::vector<LQIO::DOM::Entry*>::const_iterator nextEntry;
+      std::vector<LQIO::DOM::Entry*> activityEntries;
 
-	/* Now we can go ahead and add the task */
-	Task* newTask = Task::add(task);
+      /* Now we can go ahead and add the task */
+      Task* newTask = Task::add(task);
 
-	/* Add the entries so we can reverse them */
-	for ( nextEntry = task->getEntryList().begin(); nextEntry != task->getEntryList().end(); ++nextEntry ) {
-	    newTask->_entry.push_back( Entry::add( *nextEntry, newTask ) );
-	    if ((*nextEntry)->getStartActivity() != nullptr) {
-		activityEntries.push_back(*nextEntry);
-	    }
-	}
+      /* Add the entries so we can reverse them */
+      for ( nextEntry = task->getEntryList().begin(); nextEntry != task->getEntryList().end(); ++nextEntry ) {
+         newTask->_entry.push_back( Entry::add( *nextEntry, newTask ) );
+         if ((*nextEntry)->getStartActivity() != nullptr) {
+            activityEntries.push_back(*nextEntry);
+         }
+      }
 
-	/* Add activities for the task (all of them) */
-	const std::map<std::string,LQIO::DOM::Activity*>& activities = task->getActivities();
-	std::map<std::string,LQIO::DOM::Activity*>::const_iterator iter;
-	for (iter = activities.begin(); iter != activities.end(); ++iter) {
-	    const LQIO::DOM::Activity* activity = iter->second;
-	    newTask->add_activity(const_cast<LQIO::DOM::Activity*>(activity));
-	}
+      /* Add activities for the task (all of them) */
+      const std::map<std::string,LQIO::DOM::Activity*>& activities = task->getActivities();
+      std::map<std::string,LQIO::DOM::Activity*>::const_iterator iter;
+      for (iter = activities.begin(); iter != activities.end(); ++iter) {
+         const LQIO::DOM::Activity* activity = iter->second;
+         newTask->add_activity(const_cast<LQIO::DOM::Activity*>(activity));
+      }
 
-	/* Set all the start activities */
-	std::vector<LQIO::DOM::Entry*>::iterator entryIter;
-	for (entryIter = activityEntries.begin(); entryIter != activityEntries.end(); ++entryIter) {
-	    LQIO::DOM::Entry* theDOMEntry = *entryIter;
-	    newTask->set_start_activity(theDOMEntry);
-	}
-    }
+      /* Set all the start activities */
+      std::vector<LQIO::DOM::Entry*>::iterator entryIter;
+      for (entryIter = activityEntries.begin(); entryIter != activityEntries.end(); ++entryIter) {
+         LQIO::DOM::Entry* theDOMEntry = *entryIter;
+         newTask->set_start_activity(theDOMEntry);
+      }
+   }
 
-    /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 3: Add Calls/Phase Parameters] */
+   /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 3: Add Calls/Phase Parameters] */
 
-    /* Add all of the calls for all phases to the system */
-    const std::map<std::string,LQIO::DOM::Entry*>& allEntries = _document->getEntries();
-    for ( std::map<std::string,LQIO::DOM::Entry*>::const_iterator nextEntry = allEntries.begin(); nextEntry != allEntries.end(); ++nextEntry ) {
-	LQIO::DOM::Entry* entry = nextEntry->second;
-	Entry* newEntry = Entry::find(entry->getName().c_str());
-	if ( newEntry == nullptr ) continue;
+   /* Add all of the calls for all phases to the system */
+   const std::map<std::string,LQIO::DOM::Entry*>& allEntries = _document->getEntries();
+   for ( std::map<std::string,LQIO::DOM::Entry*>::const_iterator nextEntry = allEntries.begin(); nextEntry != allEntries.end(); ++nextEntry ) {
+      LQIO::DOM::Entry* entry = nextEntry->second;
+      Entry* newEntry = Entry::find(entry->getName().c_str());
+      if ( newEntry == nullptr ) continue;
 
-	/* Go over all of the entry's phases and add the calls */
-	for (unsigned p = 1; p <= entry->getMaximumPhase(); ++p) {
-	    LQIO::DOM::Phase* phase = entry->getPhase(p);
-	    const std::vector<LQIO::DOM::Call*>& originatingCalls = phase->getCalls();
+      /* Go over all of the entry's phases and add the calls */
+      for (unsigned p = 1; p <= entry->getMaximumPhase(); ++p) {
+         LQIO::DOM::Phase* phase = entry->getPhase(p);
+         const std::vector<LQIO::DOM::Call*>& originatingCalls = phase->getCalls();
 
-	    /* Add all of the calls to the system */
-	    for (std::vector<LQIO::DOM::Call*>::const_iterator call = originatingCalls.begin(); call != originatingCalls.end(); ++call) {
-		newEntry->add_call( p, *call );			/* Add the call to the system */
-	    }
+         /* Add all of the calls to the system */
+         for (std::vector<LQIO::DOM::Call*>::const_iterator call = originatingCalls.begin(); call != originatingCalls.end(); ++call) {
+            newEntry->add_call( p, *call );			/* Add the call to the system */
+         }
 
-	    newEntry->set_DOM(p, phase);    	/* Set the phase information for the entry */
-	}
+         newEntry->set_DOM(p, phase);    	/* Set the phase information for the entry */
+      }
 
-	/* Add in all of the P(frwd) calls */
-	const std::vector<LQIO::DOM::Call*>& forwarding = entry->getForwarding();
-	std::vector<LQIO::DOM::Call*>::const_iterator nextFwd;
-	for ( nextFwd = forwarding.begin(); nextFwd != forwarding.end(); ++nextFwd ) {
-	    Entry* targetEntry = Entry::find((*nextFwd)->getDestinationEntry()->getName().c_str());
-	    newEntry->add_forwarding(targetEntry, *nextFwd );
-	}
+      /* Add in all of the P(frwd) calls */
+      const std::vector<LQIO::DOM::Call*>& forwarding = entry->getForwarding();
+      std::vector<LQIO::DOM::Call*>::const_iterator nextFwd;
+      for ( nextFwd = forwarding.begin(); nextFwd != forwarding.end(); ++nextFwd ) {
+         Entry* targetEntry = Entry::find((*nextFwd)->getDestinationEntry()->getName().c_str());
+         newEntry->add_forwarding(targetEntry, *nextFwd );
+      }
 
-	/* Add reply */
+      /* Add reply */
 
-	if ( newEntry->is_regular() ) {
-	    const Task * aTask = newEntry->task();
-	    if ( aTask->type() != Task::Type::CLIENT && aTask->type() != Task::Type::OPEN_ARRIVAL_SOURCE ) {
-		newEntry->_phase[0].act_add_reply( newEntry );
-	    }
-	}
+      if ( newEntry->is_regular() ) {
+         const Task * aTask = newEntry->task();
+         if ( aTask->type() != Task::Type::CLIENT && aTask->type() != Task::Type::OPEN_ARRIVAL_SOURCE ) {
+            newEntry->_phase[0].act_add_reply( newEntry );
+         }
+      }
+   }
 
-    }
+   /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 4: Add Calls/Lists for Activities] */
 
-    /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- [Step 4: Add Calls/Lists for Activities] */
+   /* Go back and add all of the lists and calls now that activities all exist */
+   for ( auto task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
+      for ( auto ap = (*task)->_activity.begin(); ap != (*task)->_activity.end(); ++ap ) {
+         Activity* activity = *ap;
+         activity->add_calls()
+         .add_reply_list()
+         .add_activity_lists();
+      }
+   }
 
-    /* Go back and add all of the lists and calls now that activities all exist */
-    for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
-	for ( std::vector<Activity*>::const_iterator ap = (*task)->_activity.begin(); ap != (*task)->_activity.end(); ++ap) {
-	    Activity* activity = *ap;
-	    activity->add_calls()
-		.add_reply_list()
-		.add_activity_lists();
-	}
-    }
+   /* Use the generated connections list to finish up */
+   complete_activity_connections();
 
-    /* Use the generated connections list to finish up */
-    complete_activity_connections();
-
-    /* Tell the user that we have finished */
-    return !LQIO::io_vars.anError();
+   /* Tell the user that we have finished */
+   return !LQIO::io_vars.anError();
 }
 
 
@@ -361,43 +360,36 @@ Model::extend()
  * started.  Some construction is needed after the simulation has
  * initialized and started simply because we need run-time info.
  * Model::create() will call Task::initialize() which will call
- * XXX::initialize(). XXX:configure() is called from ::start() which
+ * XXX::initialize(). XXX::configure() is called from ::start() which
  * is called before ps_run_parasol().
  */
 
 bool
 Model::create()
 {
-    for ( unsigned j = 0; j < MAX_NODES; ++j ) {
-	link_tab[j] = -1;		/* Reset link table.	*/
-    }
-    printf("Ready to create!\n");
-    for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::create ) );
-    printf("After Processors!\n");
-    for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::create ) );
-    printf("After Groups!\n");
-    for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::create ) );
-    printf("After Tasks!\n");
+   for ( unsigned j = 0; j < MAX_NODES; ++j ) {
+      link_tab[j] = -1;		/* Reset link table.	*/
+   }
+   for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::create ) );
+   for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::create ) );
+   for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::create ) );
 
-    if ( std::none_of( Task::__tasks.begin(), Task::__tasks.end(), Predicate<Task>( &Task::is_reference_task ) ) && open_arrival_count == 0 ) {
-	LQIO::solution_error( LQIO::ERR_NO_REFERENCE_TASKS );
-    }
+   if ( std::none_of( Task::__tasks.begin(), Task::__tasks.end(), Predicate<Task>( &Task::is_reference_task ) ) && open_arrival_count == 0 ) {
+      LQIO::solution_error( LQIO::ERR_NO_REFERENCE_TASKS );
+   }
 
-    printf("After creation!\n");
+   if ( LQIO::io_vars.anError() ) return false;		/* Early termination */
 
-    if ( LQIO::io_vars.anError() ) return false;		/* Early termination */
-
-    if ( _parameters._block_period < max_service * 100 && !no_execute_flag ) {
-	(void) fprintf( stderr, "%s: ***ERROR*** Simulation duration is too small!\n\tThe largest service time period is %G\n\tIncrease the run time to %G\n",
-			LQIO::io_vars.toolname(),
-			max_service,
-			max_service * 100 );
-	if ( !debug_flag ) {
-	    exit( INVALID_ARGUMENT );
-	}
-    }
-   printf("Done with model::create()\n");
-    return true;
+   if ( _parameters._block_period < max_service * 100 && !no_execute_flag ) {
+      (void) fprintf( stderr, "%s: ***ERROR*** Simulation duration is too small!\n\tThe largest service time period is %G\n\tIncrease the run time to %G\n",
+      LQIO::io_vars.toolname(),
+      max_service,
+      max_service * 100 );
+      if ( !debug_flag ) {
+         exit( INVALID_ARGUMENT );
+      }
+   }
+   return true;
 }
 
 /*----------------------------------------------------------------------*/
