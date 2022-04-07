@@ -65,7 +65,7 @@ unsigned int Model::__print_interval = 0;
 double Model::max_service = 0.0;
 const double Model::simulation_parameters::DEFAULT_TIME = 1e5;
 bool deferred_exception = false;	/* domain error detected during run.. throw after parasol stops. */
-
+
 /*----------------------------------------------------------------------*/
 /*   Input processing.  Read input, extend and validate.                */
 /*----------------------------------------------------------------------*/
@@ -501,81 +501,78 @@ Model::insertDOMResults()
 bool
 Model::start()
 {
-    int simulation_flags= 0x00;
+   int simulation_flags= 0x00;
 
-    /* This will compute the minimum service time for each entry.  Note thate XXX::initialize() is called
-     * through Model::run() */
+   /* This will compute the minimum service time for each entry.  Note thate XXX::initialize() is called
+   * through Model::run() */
 
-    for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::configure ) );
-    const double client_cycle_time = for_each( Entry::__entries.begin(), Entry::__entries.end(), ExecSum<Entry,double>( &Entry::compute_minimum_service_time ) ).sum();
+   for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::configure ) );
+   const double client_cycle_time = for_each( Entry::__entries.begin(), Entry::__entries.end(), ExecSum<Entry,double>( &Entry::compute_minimum_service_time ) ).sum();
 
-    /* Which we can use here... */
+   /* Which we can use here... */
 
-    _parameters.set( _document->getPragmaList(), client_cycle_time );
+   _parameters.set( _document->getPragmaList(), client_cycle_time );
 
-    _start_time.init();
+   _start_time.init();
 
-    if (debug_interactive_stepping) {
-	simulation_flags = RPF_STEP; 	/* tomari quorum */
-    }
-    if (trace_driver) {
-	simulation_flags = simulation_flags | RPF_TRACE|RPF_WARNING;
-    } else {
-	simulation_flags = simulation_flags | RPF_WARNING;
-    }
+   if (debug_interactive_stepping) {
+      simulation_flags = RPF_STEP; 	/* tomari quorum */
+   }
+   if (trace_driver) {
+      simulation_flags = simulation_flags | RPF_TRACE|RPF_WARNING;
+   } else {
+      simulation_flags = simulation_flags | RPF_WARNING;
+   }
 
-    deferred_exception = false;
-    ps_run_parasol( _parameters._run_time+1.0, _parameters._seed, simulation_flags );	/* Calls ps_genesis */
-    printf("Finished \"running\" parasol\n");
+   deferred_exception = false;
+   ps_run_parasol( _parameters._run_time+1.0, _parameters._seed, simulation_flags );	/* Calls ps_genesis */
+   printf("Finished \"running\" parasol\n");
 
-    /*
-     * Run completed.
-     * Print final results
-     */
+   /*
+   * Run completed.
+   * Print final results
+   */
 
-    /* Parasol statistics if desired */
+   /* Parasol statistics if desired */
 
-    if ( raw_stat_flag ) {
-	print_raw_stats( stddbg );
-    }
+   if ( raw_stat_flag ) {
+      print_raw_stats( stddbg );
+   }
 
-    _document->print( _output_file_name, _document->getResultInvocationNumber() > 0 ? SolverInterface::Solve::customSuffix : std::string(""), _output_format, rtf_flag );
+   _document->print( _output_file_name, _document->getResultInvocationNumber() > 0 ? SolverInterface::Solve::customSuffix : std::string(""), _output_format, rtf_flag );
 
-    printf("After document printing\n");
-    if ( _confidence > _parameters._precision && _parameters._precision > 0.0 ) {
-	LQIO::solution_error( ADV_PRECISION, _parameters._precision, _parameters._block_period * number_blocks + _parameters._initial_delay, _confidence );
-    }
+   if ( _confidence > _parameters._precision && _parameters._precision > 0.0 ) {
+      LQIO::solution_error( ADV_PRECISION, _parameters._precision, _parameters._block_period * number_blocks + _parameters._initial_delay, _confidence );
+   }
 
-
-
-    if ( messages_lost ) {
-	for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
-	    const Task * cp = *task;
-	    if ( cp->has_lost_messages() )  {
-		LQIO::solution_error( LQIO::ADV_MESSAGES_DROPPED, cp->name() );
-	    }
-	}
-    }
+   if ( messages_lost ) {
+      for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
+         const Task * cp = *task;
+         if ( cp->has_lost_messages() )  {
+            LQIO::solution_error( LQIO::ADV_MESSAGES_DROPPED, cp->name() );
+         }
+      }
+   }
 
 
-    if ( check_stacks ) {
+   if ( check_stacks ) {
 #if HAVE_MCHECK
 	mcheck_check_all();
 #endif
-	fprintf( stderr, "%s: ", _input_file_name.c_str() );
-    }
+      fprintf( stderr, "%s: ", _input_file_name.c_str() );
+   }
 
-    for ( unsigned i = 1; i <= total_tasks; ++i ) {
-	Instance * ip = object_tab.at(i);
-	if ( !ip ) continue;
-	delete ip;
-	object_tab[i] = 0;
-    }
+   for ( unsigned i = 1; i <= total_tasks; ++i ) {
+      Instance * ip = object_tab.at(i);
+      if ( !ip ) continue;
+      delete ip;
+      object_tab[i] = 0;
+   }
 
-    if ( deferred_exception ) {
-	throw_bad_parameter();
-    }
-    return LQIO::io_vars.anError() == 0;
+   if ( deferred_exception ) {
+      throw_bad_parameter();
+   }
+   return LQIO::io_vars.anError() == 0;
 }
 
 
@@ -587,22 +584,22 @@ Model::start()
 bool
 Model::reload()
 {
-    /* Default mapping */
+   /* Default mapping */
 
-    LQIO::Filename directory_name( getOutputFileName(), "d" );		/* Get the base file name */
+   LQIO::Filename directory_name( getOutputFileName(), "d" );		/* Get the base file name */
 
-    if ( access( directory_name().c_str(), R_OK|W_OK|X_OK ) < 0 ) {
-	solution_error( LQIO::ERR_CANT_OPEN_DIRECTORY, directory_name().c_str(), strerror( errno ) );
-	throw LQX::RuntimeException( "--reload-lqx can't load results." );
-    }
+   if ( access( directory_name().c_str(), R_OK|W_OK|X_OK ) < 0 ) {
+      solution_error( LQIO::ERR_CANT_OPEN_DIRECTORY, directory_name().c_str(), strerror( errno ) );
+      throw LQX::RuntimeException( "--reload-lqx can't load results." );
+   }
 
-    unsigned int errorCode = 0;
-    if ( !_document->loadResults( directory_name(), _input_file_name,
-				  SolverInterface::Solve::customSuffix, _output_format, errorCode ) ) {
-	throw LQX::RuntimeException( "--reload-lqx can't load results." );
-    } else {
-	return _document->getResultValid();
-    }
+   unsigned int errorCode = 0;
+   if ( !_document->loadResults( directory_name(), _input_file_name,
+         SolverInterface::Solve::customSuffix, _output_format, errorCode ) ) {
+      throw LQX::RuntimeException( "--reload-lqx can't load results." );
+   } else {
+      return _document->getResultValid();
+   }
 }
 
 
@@ -613,16 +610,16 @@ Model::reload()
 bool
 Model::restart()
 {
-    try {
-	if ( reload() ) {
-	    return true;
-	} else {
-	    return start();
-	}
-    }
-    catch ( const LQX::RuntimeException& e ) {
-	return start();
-    }
+   try {
+      if ( reload() ) {
+         return true;
+      } else {
+         return start();
+      }
+   }
+   catch ( const LQX::RuntimeException& e ) {
+      return start();
+   }
 }
 
 /* ------------------------------------------------------------------------ */
@@ -636,120 +633,110 @@ Model::restart()
 bool
 Model::run( int task_id )
 {
-    bool rc = false;
-    __genesis_task_id = task_id;
+   bool rc = false;
+   __genesis_task_id = task_id;
 
-    if ( verbose_flag ) {
-	(void) putc( 'C', stderr );		/* Constructing */
-    }
+   if ( verbose_flag ) {
+      (void) putc( 'C', stderr );		/* Constructing */
+   }
 
 #ifdef LQX_DEBUG
     printf( "In Model::run() ps_now: %g\n", ps_now );
     fflush( stdout );
 #endif
 
-    try {
-       printf("Before create()\n"); // Where is the Floating point exception?
-	if ( !create() ) {
-	    rc = false;
-	} else if ( no_execute_flag ) {
-	    rc = true;
-	} else {
-	   printf("After create()\n");
+   try {
+      if ( !create() ) {
+         rc = false;
+      } else if ( no_execute_flag ) {
+         rc = true;
+      } else {
 
-	    /*
-	     * Start all of the tasks.
-	     */
+         /* Start all of the tasks. */
 
-	    std::for_each( Task::__tasks.begin(), Task::__tasks.end(), &Model::start_task );
-      printf("After start_task()\n");
-	    if ( _parameters._initial_delay ) {
-		if ( verbose_flag ) {
-		    (void) putc( 'I', stderr );
-		}
-		printf("ps_sleep()\n");
-		ps_sleep( _parameters._initial_delay );
-		if ( deferred_exception ) throw std::runtime_error( "terminating" );
-	    }
+      std::for_each( Task::__tasks.begin(), Task::__tasks.end(), &Model::start_task );
+      if ( _parameters._initial_delay ) {
+         if ( verbose_flag ) {
+            (void) putc( 'I', stderr );
+         }
+         ps_sleep( _parameters._initial_delay );
+         if ( deferred_exception ) throw std::runtime_error( "terminating" );
+      }
 
-	    /*
-	     * Reset all counters (stuff during "initial_delay" is ignored)
-	     */
-      printf("Model::reset_stats()\n");
-	    reset_stats();
-      printf("After Model::reset_stats()\n");
+      /*
+      * Reset all counters (stuff during "initial_delay" is ignored)
+      */
 
-	    /*
-	     * Accumulate statistical data.
-	     */
+      reset_stats();
 
-	    bool valid = false;
-	    for ( number_blocks = 1; !valid && number_blocks <= _parameters._max_blocks; number_blocks += 1 ) {
 
-		if ( verbose_flag ) {
-		    (void) fprintf( stderr, " %c", "0123456789"[number_blocks%10] );
-		}
+      /*
+      * Accumulate statistical data.
+	   */
 
-      printf("another ps_sleep()\n");
-		ps_sleep( _parameters._block_period );
-		printf("Model::accumulate_data()\n");
-		accumulate_data();
-		printf("after Model::accumulate_data()\n");
+	   bool valid = false;
+	   for ( number_blocks = 1; !valid && number_blocks <= _parameters._max_blocks; number_blocks += 1 ) {
+         if ( verbose_flag ) {
+            (void) fprintf( stderr, " %c", "0123456789"[number_blocks%10] );
+         }
 
-		if ( number_blocks > 2 ) {
-		    _confidence = rms_confidence();
-		    if ( verbose_flag ) {
-			(void) fprintf( stderr, "[%.2g]", _confidence );
-			if ( number_blocks % 10 == 0 ) {
-			    (void) putc( '\n', stderr );
-			}
-		    }
-		    valid = _confidence <= _parameters._precision;
-		}
+         ps_sleep( _parameters._block_period );
+         accumulate_data();
 
-		insertDOMResults();
+         if ( number_blocks > 2 ) {
+            _confidence = rms_confidence();
+            if ( verbose_flag ) {
+               (void) fprintf( stderr, "[%.2g]", _confidence );
+               if ( number_blocks % 10 == 0 ) {
+                  (void) putc( '\n', stderr );
+               }
+            }
+         valid = _confidence <= _parameters._precision;
+         }
 
-		if ( __enable_print_interval && !valid && __print_interval > 0 && number_blocks % __print_interval == 0 ) {
-		    print_intermediate();
-		}
+         insertDOMResults();
 
-		if ( deferred_exception ) throw std::runtime_error( "terminating" );
-	    }
+         if ( __enable_print_interval && !valid && __print_interval > 0 && number_blocks % __print_interval == 0 ) {
+            print_intermediate();
+         }
 
-	    if ( verbose_flag || trace_driver ) (void) putc( '\n', stderr );
+         if ( deferred_exception ) throw std::runtime_error( "terminating" );
+      }
 
-	    rc = true;
-	}
-    }
-    catch ( const std::domain_error& e ) {
-	rc = false;
-	deferred_exception = true;
-    }
-    catch ( const std::runtime_error& e ) {
-	std::cerr << LQIO::io_vars.lq_toolname << ": runtime error: " << e.what() << std::endl;
-	rc = false;
-	deferred_exception = true;
-    }
+      if ( verbose_flag || trace_driver ) (void) putc( '\n', stderr );
 
-    /* Force simulation to terminate. */
+      rc = true;
+      }
+   }
+   catch ( const std::domain_error& e ) {
+      rc = false;
+      deferred_exception = true;
+   }
+   catch ( const std::runtime_error& e ) {
+      std::cerr << LQIO::io_vars.lq_toolname << ": runtime error: " << e.what() << std::endl;
+      rc = false;
+      deferred_exception = true;
+   }
 
-    ps_run_time = -1.1;
-    ps_sleep(1.0);
+   /* Force simulation to terminate. */
 
-    /* Remove instances */
+   ps_run_time = -1.1;
+   ps_sleep(1.0);
 
-    std::for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::kill ) );
+   /* Remove instances */
 
-    return rc;
+   std::for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::kill ) );
+
+   return rc;
 }
 
 
 void
 Model::start_task( Task * task )
 {
-    if ( !task->start() ) {
-	throw std::runtime_error( std::string("Failed to start task '") + task->name() + "'." );
-    }
+   if ( !task->start() ) {
+      throw std::runtime_error( std::string("Failed to start task '") + task->name() + "'." );
+   }
 }
 
 
@@ -760,9 +747,9 @@ Model::start_task( Task * task )
 void
 Model::accumulate_data()
 {
-    for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::accumulate_data ) );
-    for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::accumulate_data ) );
-    for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::accumulate_data ) );
+   for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::accumulate_data ) );
+   for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::accumulate_data ) );
+   for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::accumulate_data ) );
 
 #ifdef	NOTDEF
     /* Link utilization. */
@@ -782,9 +769,9 @@ Model::accumulate_data()
 void
 Model::reset_stats()
 {
-    for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::reset_stats ) );
-    for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::reset_stats ) );
-    for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::reset_stats ) );
+   for_each( Task::__tasks.begin(), Task::__tasks.end(), Exec<Task>( &Task::reset_stats ) );
+   for_each( Group::__groups.begin(), Group::__groups.end(), Exec<Group>( &Group::reset_stats ) );
+   for_each( Processor::__processors.begin(), Processor::__processors.end(), Exec<Processor>( &Processor::reset_stats ) );
 
 #ifdef	NOTDEF
     /* Link utilization. */
@@ -805,31 +792,31 @@ Model::reset_stats()
 double
 Model::rms_confidence()
 {
-    double sum_sqr = 0.0;
-    double n = 0;
+   double sum_sqr = 0.0;
+   double n = 0;
 
-    for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
-	if ( (*task)->type() == Task::Type::OPEN_ARRIVAL_SOURCE ) continue;		/* Skip. */
+   for ( std::set<Task *>::const_iterator task = Task::__tasks.begin(); task != Task::__tasks.end(); ++task ) {
+      if ( (*task)->type() == Task::Type::OPEN_ARRIVAL_SOURCE ) continue;		/* Skip. */
 
-	for ( std::vector<Entry *>::const_iterator nextEntry = (*task)->_entry.begin(); nextEntry != (*task)->_entry.end(); ++nextEntry ) {
-	    double temp = normalized_conf95( (*nextEntry)->r_cycle );
-	    if ( temp > 0 ) {
-		sum_sqr += ( temp * temp );
-		n += 1;
-	    }
-	}
-    }
-    return n > 0 ? sqrt( sum_sqr / n ) : 0.0;
+      for ( std::vector<Entry *>::const_iterator nextEntry = (*task)->_entry.begin(); nextEntry != (*task)->_entry.end(); ++nextEntry ) {
+         double temp = normalized_conf95( (*nextEntry)->r_cycle );
+         if ( temp > 0 ) {
+            sum_sqr += ( temp * temp );
+            n += 1;
+         }
+      }
+   }
+   return n > 0 ? sqrt( sum_sqr / n ) : 0.0;
 }
 
 double
 Model::normalized_conf95( const result_t& stat )
 {
-    double temp = stat.mean();
-    if ( temp ) {
-	return sqrt(stat.variance()) * result_t::conf95( number_blocks ) * 100.0 / temp;
-    }
-    return -1.0;
+   double temp = stat.mean();
+   if ( temp ) {
+      return sqrt(stat.variance()) * result_t::conf95( number_blocks ) * 100.0 / temp;
+   }
+   return -1.0;
 }
 
 
@@ -840,14 +827,11 @@ Model::normalized_conf95( const result_t& stat )
 void
 ps_genesis(void *)
 {
-   printf("Model ps_genesis\n");
    // #define	ps_myself ((((char *)ps_htp)-ps_task_tab.base)/ps_task_tab.entry_size)
-   printf("Task table size is currently %d.\n", ps_task_tab.get_tab_size());
-   //if (ps_task_tab.entry_size == 0) ps_task_tab.entry_size = 1;
-    if (!Model::__model->run( ps_myself ) ) {
-	LQIO::solution_error( ERR_INITIALIZATION_FAILED );
-    }
-    ps_suspend( ps_myself );
+   if (!Model::__model->run( ps_myself ) ) {
+      LQIO::solution_error( ERR_INITIALIZATION_FAILED );
+   }
+   ps_suspend( ps_myself );
 }
 
 /*
@@ -857,82 +841,78 @@ ps_genesis(void *)
 
 void Model::simulation_parameters::set( const std::map<std::string,std::string>& pragmas, double minimum_cycle_time )
 {
-    if ( !set( _seed, pragmas, LQIO::DOM::Pragma::_seed_value_ ) ) {
-	/* Not set... Randomize. */
-	_seed = (long)time( (time_t *)0 );
-	std::stringstream value;
-	value << _seed;
-	__model->_document->addPragma(LQIO::DOM::Pragma::_seed_value_,value.str());	/* set value in DOM */
+   if ( !set( _seed, pragmas, LQIO::DOM::Pragma::_seed_value_ ) ) {
+      /* Not set... Randomize. */
+      _seed = (long)time( (time_t *)0 );
+      std::stringstream value;
+      value << _seed;
+      __model->_document->addPragma(LQIO::DOM::Pragma::_seed_value_,value.str());	/* set value in DOM */
+   }
+   if ( set( _run_time, pragmas, LQIO::DOM::Pragma::_run_time_ ) ) {
+      _max_blocks = 1;
+   } else {
+      unsigned long initial_loops = 0;
+      if ( set( _precision, pragmas, LQIO::DOM::Pragma::_precision_ ) ) {
+         /* -C */
+         _max_blocks = MAX_BLOCKS;
+         if ( !set( initial_loops, pragmas, LQIO::DOM::Pragma::_initial_loops_ ) ) {
+            initial_loops = static_cast<unsigned long>(INITIAL_LOOPS / _precision);
+         }
+         _initial_delay = minimum_cycle_time * initial_loops * 2;
+         if ( !set( _run_time, pragmas, LQIO::DOM::Pragma::_run_time_ ) ) {
+            _block_period = _initial_delay * 100;
+         } else {
+            _block_period = (_run_time - _initial_delay) / _max_blocks;
+         }
+      } else if ( set( _max_blocks, pragmas, LQIO::DOM::Pragma::_max_blocks_ ) ) {
+         /* -B */
+         if ( !set( _block_period, pragmas, LQIO::DOM::Pragma::_block_period_ ) ) {
+            _block_period = DEFAULT_TIME;
+         }
+         set( _initial_delay, pragmas, LQIO::DOM::Pragma::_initial_delay_ );
+      } else if ( set( _block_period, pragmas, LQIO::DOM::Pragma::_block_period_ ) ) {
+         /* -A */
+         if ( !set( _precision, pragmas, LQIO::DOM::Pragma::_precision_ ) ) {
+            _precision = 1.0;
+         }
+         set( _initial_delay, pragmas, LQIO::DOM::Pragma::_initial_delay_ );
 
-    }
-    if ( set( _run_time, pragmas, LQIO::DOM::Pragma::_run_time_ ) ) {
-	_max_blocks = 1;
+      } else {
+         /* full auto */
+      }
 
-    } else {
-	unsigned long initial_loops = 0;
-	if ( set( _precision, pragmas, LQIO::DOM::Pragma::_precision_ ) ) {
-	    /* -C */
-	    _max_blocks = MAX_BLOCKS;
-	    if ( !set( initial_loops, pragmas, LQIO::DOM::Pragma::_initial_loops_ ) ) {
-		initial_loops = static_cast<unsigned long>(INITIAL_LOOPS / _precision);
-	    }
-	    _initial_delay = minimum_cycle_time * initial_loops * 2;
-	    if ( !set( _run_time, pragmas, LQIO::DOM::Pragma::_run_time_ ) ) {
-		_block_period = _initial_delay * 100;
-	    } else {
-		_block_period = (_run_time - _initial_delay) / _max_blocks;
-	    }
-
-	} else if ( set( _max_blocks, pragmas, LQIO::DOM::Pragma::_max_blocks_ ) ) {
-	    /* -B */
-	    if ( !set( _block_period, pragmas, LQIO::DOM::Pragma::_block_period_ ) ) {
-		_block_period = DEFAULT_TIME;
-	    }
-	    set( _initial_delay, pragmas, LQIO::DOM::Pragma::_initial_delay_ );
-
-	} else if ( set( _block_period, pragmas, LQIO::DOM::Pragma::_block_period_ ) ) {
-	    /* -A */
-	    if ( !set( _precision, pragmas, LQIO::DOM::Pragma::_precision_ ) ) {
-		_precision = 1.0;
-	    }
-	    set( _initial_delay, pragmas, LQIO::DOM::Pragma::_initial_delay_ );
-
-	} else {
-	    /* full auto */
-	}
-
-	_run_time = _initial_delay + _max_blocks * _block_period;
-    }
+      _run_time = _initial_delay + _max_blocks * _block_period;
+   }
 }
 
 
 bool Model::simulation_parameters::set( double& parameter, const std::map<std::string,std::string>& pragmas, const std::string& value )
 {
-    std::map<std::string,std::string>::const_iterator i = pragmas.find( value );
-    if ( i != pragmas.end() ) {
-	char * endptr = nullptr;
-	parameter = std::strtod( i->second.c_str(), &endptr );
-	if ( *endptr != '\0' ) {
-	    throw std::invalid_argument( value + "=" + i->second );
-	}
-	return true;
-    } else {
-	return false;
-    }
+   std::map<std::string,std::string>::const_iterator i = pragmas.find( value );
+   if ( i != pragmas.end() ) {
+      char * endptr = nullptr;
+      parameter = std::strtod( i->second.c_str(), &endptr );
+      if ( *endptr != '\0' ) {
+         throw std::invalid_argument( value + "=" + i->second );
+      }
+      return true;
+   } else {
+      return false;
+   }
 }
 
 
 bool Model::simulation_parameters::set( unsigned long& parameter, const std::map<std::string,std::string>& pragmas, const std::string& value )
 {
-    std::map<std::string,std::string>::const_iterator i = pragmas.find( value );
-    if ( i != pragmas.end() ) {
-	char * endptr = nullptr;
-	parameter = std::strtol( i->second.c_str(), &endptr, 10 );
-	if ( *endptr != '\0' ) {
-	    throw std::invalid_argument( value + "=" + i->second );
-	}
-	return true;
-    } else {
-	return false;
-    }
+   std::map<std::string,std::string>::const_iterator i = pragmas.find( value );
+   if ( i != pragmas.end() ) {
+      char * endptr = nullptr;
+      parameter = std::strtol( i->second.c_str(), &endptr, 10 );
+      if ( *endptr != '\0' ) {
+         throw std::invalid_argument( value + "=" + i->second );
+      }
+      return true;
+   } else {
+      return false;
+   }
 }

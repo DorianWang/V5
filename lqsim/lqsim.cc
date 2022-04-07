@@ -234,7 +234,7 @@ static const char * events[] = {
     "thread-create",	/* THREAD_CREATE, */
     "thread-reap",	/* THREAD_REAP, */
     "thread-stop",	/* THREAD_STOP, */
-    "activity-start",	/* ACTIVITY-START */   
+    "activity-start",	/* ACTIVITY-START */
     "activity_execute",	/* ACTIVITY_EXECUTE */
     "activity_fork",	/* ACTIVITY_FORK */
     "activity_join",    /* ACTIVITY_JOIN */
@@ -298,15 +298,15 @@ static void trace_event_list( const std::regex& );
 
 int
 main( int argc, char * argv[] )
-{   				
+{
     int global_error_flag	= 0;
     std::string output_file;		/* Command line filename?   	*/
     LQIO::DOM::Document::InputFormat input_format = LQIO::DOM::Document::InputFormat::AUTOMATIC;
     LQIO::DOM::Document::OutputFormat output_format = LQIO::DOM::Document::OutputFormat::DEFAULT;
     Model::solve_using solve_function = &Model::start;
-	
+
     /* optarg(3) stuff */
-	
+
     extern char *optarg;
     char * options;
     char * value;
@@ -324,36 +324,36 @@ main( int argc, char * argv[] )
     stddbg    = stdout;
 
     /* Handy defaults.						*/
-	
+
     raw_stat_flag   = false;
     verbose_flag    = false;
     debug_flag      = false;
     no_execute_flag = false;
 
     matherr_disposition = REPORT_MATHERR;
-	
+
     pragmas.insert( getenv( "LQSIM_PRAGMAS" ) );
 
     /* Process all the command line arguments.  			*/
-	
+
     for ( ;; ) {
 #if HAVE_GETOPT_LONG
 	const int c = getopt_long( argc, argv, opts, longopts, nullptr );
-#else	
+#else
 	const int c = getopt( argc, argv, opts );
 #endif
 	if ( c == EOF) break;
-	
+
 	command_line.append( c, optarg );
 
-	try { 
+	try {
 	    char * token;
 	    switch ( c ) {
 
 	    case 'a':
 		pragmas.insert(LQIO::DOM::Pragma::_severity_level_,LQIO::DOM::Pragma::_run_time_);
 		break;
-		
+
 	    case 'A':		/* Auto blocking	*/
 		token = strtok( optarg, "," );
 		pragmas.insert(LQIO::DOM::Pragma::_block_period_, token );
@@ -364,7 +364,7 @@ main( int argc, char * argv[] )
 		if ( token == nullptr ) break;
 		pragmas.insert(LQIO::DOM::Pragma::_initial_delay_, token );
 		break;
-			
+
 	    case 'B':
 		token = strtok( optarg, "," );
 		pragmas.insert(LQIO::DOM::Pragma::_max_blocks_, token );
@@ -375,7 +375,7 @@ main( int argc, char * argv[] )
 		if ( token == nullptr ) break;
 		pragmas.insert(LQIO::DOM::Pragma::_initial_delay_, token );
 		break;
-			
+
 	    case 'C':
 		token = strtok( optarg, "," );
 		pragmas.insert(LQIO::DOM::Pragma::_precision_, token );
@@ -386,17 +386,17 @@ main( int argc, char * argv[] )
 		if ( token == nullptr ) break;
 		pragmas.insert(LQIO::DOM::Pragma::_run_time_, token );
 		break;
-	    
+
 	    case 'c'+256:
 		LQIO::Spex::__print_comment = true;
 		pragmas.insert(LQIO::DOM::Pragma::_spex_comment_,"true");
 		break;
-		
+
 	    case 'd':
 		debug_flag    = true;
 		raw_stat_flag = true;
 		break;
-	 
+
 	    case 'e':			/* Error handling.	*/
 		switch ( optarg[0] ) {
 		case 'a':
@@ -407,7 +407,7 @@ main( int argc, char * argv[] )
 		case 'i':
 		    matherr_disposition = IGNORE_MATHERR;
 		    break;
-				
+
 		case 'w':
 		    matherr_disposition = REPORT_MATHERR;
 		    break;
@@ -416,7 +416,7 @@ main( int argc, char * argv[] )
 		    throw std::invalid_argument( optarg );
 		}
 		break;
-			
+
 	    case 'H':
 		usage();
 		exit(0);
@@ -468,18 +468,18 @@ main( int argc, char * argv[] )
 		    exit( FILEIO_ERROR );
 		}
 		break;
-			
+
 	    case 'n':
 		no_execute_flag = true;
 		break;
-			
+
 	    case 'N':
 		nice_value = strtol( optarg, &value, 10 );
 		if ( nice_value < -20 || 20 <= nice_value || *value != '\0' ) {
 		    throw std::invalid_argument( optarg );
 		}
 		break;
-		
+
 	    case 'o':
 		output_file = optarg;
 		break;
@@ -498,7 +498,7 @@ main( int argc, char * argv[] )
 		    exit( INVALID_ARGUMENT );
 		}
 		break;
-			    
+
 	    case 256+'p':
 		if ( optarg != nullptr ) {
 		    Model::__print_interval = strtoul( optarg, &value, 10 );
@@ -508,7 +508,7 @@ main( int argc, char * argv[] )
 		}
 		Model::__enable_print_interval = true;
 		break;
-				
+
 	    case 'r':
 		rtf_flag = true;
 		break;
@@ -520,7 +520,7 @@ main( int argc, char * argv[] )
 	    case 'R':
 		raw_stat_flag = true;
 		break;
-			
+
 	    case 256+'R':
 		solve_function = &Model::restart;
 		break;
@@ -531,9 +531,9 @@ main( int argc, char * argv[] )
 
 	    case 's':
 		debug_interactive_stepping = true;
-		fprintf(stdout, "\ndebug interactive stepping option is turned on\n" ) ; 
+		fprintf(stdout, "\ndebug interactive stepping option is turned on\n" ) ;
 		break;
-			
+
 #if defined(STACK_TESTING)
 	    case 256+'s':
 		check_stacks = true;
@@ -554,7 +554,7 @@ main( int argc, char * argv[] )
 		    case PROCESSOR:
 			processor_match_pattern = value;
 			break;
-				
+
 		    case TASK:
 			task_match_pattern = value;
 			break;
@@ -570,29 +570,29 @@ main( int argc, char * argv[] )
 		    case MSGBUF:
 			trace_msgbuf_flag = true;
 			break;
-				
+
 		    default:
 			throw std::invalid_argument( optarg );
 			break;
 		    }
 		break;
-			
+
 	    case 'v':
 		verbose_flag = true;
 		LQIO::Spex::__verbose = true;
 		break;
-			
+
 	    case 'V':
 		(void) fprintf( stdout, "\nLayered Queueing Network Simulator, Version %s\n\n", VERSION );
 		(void) fprintf( stdout, "  Copyright %s the Real-Time and Distributed Systems Group,\n", copyright_date );
 		(void) fprintf( stdout, "  Department of Systems and Computer Engineering,\n" );
 		(void) fprintf( stdout, "  Carleton University, Ottawa, Ontario, Canada. K1S 5B6\n\n");
 		break;
-	    
+
 	    case 'w':
 		pragmas.insert(LQIO::DOM::Pragma::_severity_level_,LQIO::DOM::Pragma::_advisory_);
 		break;
-			
+
 	    case 'x':
 		output_format = LQIO::DOM::Document::OutputFormat::XML;
 		break;
@@ -607,7 +607,7 @@ main( int argc, char * argv[] )
 		break;
 
 	    default:
-		
+
 		break;
 	    }
 	}
@@ -635,7 +635,7 @@ main( int argc, char * argv[] )
 
     /* Process all command line arguments.  If none specified, then	*/
     /* input is assumed to come in from stdin.				*/
-	
+
     if ( optind == argc ) {
 
 	try {
@@ -653,9 +653,9 @@ main( int argc, char * argv[] )
 #endif
 
     } else {
-  
+
 	int file_count = argc - optind;
-		
+
 	if ( file_count > 1 && LQIO::Filename::isFileName( output_file ) && LQIO::Filename::isDirectory( output_file ) == 0 ) {
 	    (void) fprintf( stderr, "%s: Too many input files specified with -o <file> option.\n", LQIO::io_vars.toolname() );
 	    exit( INVALID_ARGUMENT );
@@ -677,7 +677,7 @@ main( int argc, char * argv[] )
 
     return global_error_flag;
 }
-	
+
 
 static void
 usage(void)
@@ -725,7 +725,7 @@ usage(void)
 	}
     }
     std::cerr << ']';
-	
+
     for ( const char * s = opts; *s; ++s ) {
 	if ( *(s+1) == ':' ) {
 	    fprintf( stderr, " [-%c", *s );
@@ -740,13 +740,13 @@ usage(void)
 	    case 'S': fprintf( stderr, "seed" ); break;
 	    case 't': fprintf( stderr, "trace" ); break;
 	    case 'T': fprintf( stderr, "time" ); break;
-	    } 
+	    }
 	    fputc( ']', stderr );
 	    ++s;
 	}
     }
     fprintf( stderr, " [file ...]\n" );
-	
+
     (void) fprintf( stderr, "\t-t " );
     for ( const char ** sp = &trace_opts[0]; *sp; ++sp ) {
 	(void) fprintf( stderr, "%s%c", *sp, *(sp+1) ? ',' : '\n' );
@@ -760,7 +760,7 @@ report_matherr( FILE * output )
 {
     unsigned i;
     unsigned count = 0;
-    
+
 #if  HAVE_FENV_H && HAVE_FETESTEXCEPT
     fp_bit_type bits = fetestexcept( FE_DIVBYZERO|FE_INVALID|FE_OVERFLOW|FE_UNDERFLOW );
 #elif HAVE_IEEEFP_H && HAVE_FPGETSTICKY

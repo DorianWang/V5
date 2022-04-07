@@ -20,6 +20,7 @@
 /** This class is just to try to restore some of the functionality that parasol had.
 *** Mostly it's just about remaking the node/task/message structure without the stack.
 *** Should be useful for our replacement, since we can use it to passthrough later.
+*** Right now it just
 **/
 class TestStorage
 {

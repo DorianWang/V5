@@ -63,15 +63,12 @@ Instance::Instance( Task * cp, const char * task_name, long task_id )
       lastQuorumEndTime(0),
       _join_done()
 {
-   FUNC_NAME_OUT;
     assert ( _std_port < MAX_PORTS );
 
     _entry.assign( cp->n_entries(), nullptr );
     _join_done.assign( cp->max_activities(), false );
 
-    printf("Maybe vector is not good?\n");
     object_tab[task_id] = this;
-    printf("Vector is good.\n");
     if ( static_cast<unsigned long>(task_id) > total_tasks ) {
 	total_tasks = task_id;
     }
@@ -245,22 +242,17 @@ Instance::server_cycle ( Entry * ep, Message * msg, bool reschedule )
 
 Real_Instance::Real_Instance( Task * cp, const char * task_name )
     : Instance( cp, task_name, Real_Instance::create_task( cp, task_name ) )
-{
-   FUNC_NAME_OUT;
-}
+{}
 
 
 int
 Real_Instance::create_task( Task * cp, const char * task_name )
 {
-   printf("Inside create_task()\n");
-   printf("Task pointer is %x and dummy pointer is %x\n", (size_t) cp, (size_t) dummy_task_location);
-    if ( cp->group_id() != -1 ) {
-		printf("ps_create_group will be called, from Real_Instance::create_task\n");
-	return ps_create_group( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority(), cp->group_id() );
-    } else {
-	return ps_create( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority() );
-    }
+   if ( cp->group_id() != -1 ) {
+      return ps_create_group( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority(), cp->group_id() );
+   } else {
+      return ps_create( task_name, cp->node_id(), ANY_HOST, Instance::start, cp->priority() );
+   }
 }
 
 
@@ -347,7 +339,6 @@ srn_sync_server::run()
 srn_client::srn_client( Task * cp, const char * a_name  )
     : Real_Instance( cp, a_name )
 {
-   FUNC_NAME_OUT;
    client_init_count += 1;		/* For -C auto init. 			*/
 }
 

@@ -178,7 +178,6 @@ Entry::configure()
 Entry&
 Entry::initialize()
 {
-   FUNC_NAME_OUT
     if ( debug_flag ) {
 	print_debug_info();
     }
@@ -186,7 +185,6 @@ Entry::initialize()
     _join_list = nullptr;		/* Reset */
 
     r_cycle.init( SAMPLE, "Entry %-11.11s  - Cycle Time      ", name() );
-    printf("After result_t init\n");
 
     switch ( task()->type() ) {
     case Task::Type::CLIENT:
@@ -194,25 +192,22 @@ Entry::initialize()
 	break;
 
     case Task::Type::SEMAPHORE:
-       printf("Is semaphore\n");
-	if ( is_signal() ) {
-	    _port = dynamic_cast<const Semaphore_Task *>(task())->signal_task()->std_port();
-	} else if ( is_wait() ) {
-	    _port = task()->std_port();
-	} else {
-	    _port = -1;
-	}
-	break;
+      if ( is_signal() ) {
+          _port = dynamic_cast<const Semaphore_Task *>(task())->signal_task()->std_port();
+      } else if ( is_wait() ) {
+          _port = task()->std_port();
+      } else {
+          _port = -1;
+      }
+      break;
 
     default:
-       printf("Is default\n");
-	_port = task()->std_port();
-	break;
+      _port = task()->std_port();
+      break;
     }
 
-    printf("Ready to initialize phases\n");
     for ( std::vector<Activity>::iterator phase = _phase.begin(); phase != _phase.end(); ++phase ) {
-	phase->initialize();
+      phase->initialize();
     }
 
     /* forwarding component */
@@ -220,7 +215,6 @@ Entry::initialize()
     if ( is_rendezvous() ) {
 	_fwd.initialize( name() );
     }
-      printf("Entry init complete\n");
     return *this;
 }
 

@@ -49,13 +49,13 @@ private:
 public:
     enum class Type
     {
-	FORK_LIST,
-	OR_FORK_LIST,
-	AND_FORK_LIST,
-	LOOP_LIST,
-	JOIN_LIST,
-	AND_JOIN_LIST,
-	OR_JOIN_LIST
+      FORK_LIST,
+      OR_FORK_LIST,
+      AND_FORK_LIST,
+      LOOP_LIST,
+      JOIN_LIST,
+      AND_JOIN_LIST,
+      OR_JOIN_LIST
     };
 
 
@@ -74,10 +74,10 @@ public:
     };
 
     ActivityList( Type type, LQIO::DOM::ActivityList* dom )
-	: _type(type),
-	  _dom(dom),
-	  _list()
-	{FUNC_NAME_OUT;}
+   : _type(type),
+     _dom(dom),
+     _list()
+   {}
     virtual ~ActivityList() {}
 
     size_t size() const { return _list.size(); }

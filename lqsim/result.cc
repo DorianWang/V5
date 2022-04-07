@@ -119,7 +119,6 @@ result_t::clear_results ()
 void
 result_t::reset()
 {
-   //FUNC_NAME_OUT;
     ps_reset_stat( raw );
 }
 

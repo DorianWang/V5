@@ -510,7 +510,6 @@ SYSCALL	ps_create2(
 	long	adjustment;			/* stack base adjuster	*/
 	sched_info 	*si;			/* sched_info pointer	*/
 
-	printf("Executing ps_create2 with task name: %s and task ID %d\n", name, task);
 	task = dump.add_task(name, node, host, code, priority, ps_now, group, stackscale);
 
 	return(task);
@@ -876,15 +875,12 @@ SYSCALL ps_resume(
 )
 {
 	ps_task_t	*tp;			/* task pointers	*/
-	printf("ps_resume(%d)\n", task);
 
 	//if(task >= ps_task_tab.get_tab_size() || task < 0)
 	//	return(BAD_PARAM("task"));
 
 	tp = ps_task_ptr(task);
 	if (tp == dummy_task_location) dummy_task_location->state = TASK_SUSPENDED;
-	printf("tp is %x ", (size_t) tp);
-	printf("with state %d, angio_flag is %d\n", tp->state, angio_flag); // Hope enums count as ints.
 
 	switch(tp->state) {
 
@@ -892,19 +888,16 @@ SYSCALL ps_resume(
 		if (angio_flag)
 			log_angio_event(tp, dye_ptr(tp->did), "wAwaken");
 		find_host(tp);
-		printf("Done ps_resume(%d)\n", task);
 		return(OK);
 
 	case	TASK_SYNC_SUSPEND:
 	        if (angio_flag)
 			log_angio_event(tp, dye_ptr(tp->did), "wAwaken");
 		SET_TASK_STATE(tp, TASK_SYNC);
-		printf("Done ps_resume(%d)\n", task);
 		return(OK);
 
 	default:
-	   printf("A bad call shouldn't segfault, yet...\n");
-	        return(BAD_CALL("Task is not suspended"));
+      return(BAD_CALL("Task is not suspended"));
 	}
 }
 
@@ -979,7 +972,6 @@ SYSCALL	ps_sleep(
 
 	np = node_ptr(ps_htp->node);
 	if (ps_htp != dummy_task_location) ps_htp = dummy_task_location;
-	printf("In ps_sleep()\n");
 
 	if(duration <= 0.0) {
 		if((np->rtrq == NULL_TASK ) ||
@@ -990,10 +982,8 @@ SYSCALL	ps_sleep(
 			return(OK);
 		duration = 0.0;
 	}
-	printf("setting hp to ps_htp->hp\n");
 	hp = ps_htp->hp;
 	if(np->discipline==CFS){
-      printf("update_run_task()\n");
 		update_run_task(ps_htp);
 		dq_cfs_task(ps_htp);
 		/* cooling the cfs task */
@@ -1144,7 +1134,6 @@ SYSCALL	ps_allocate_port(
 	long	task				/* task index		*/
 )
 {
-   printf("In ps_allocate_port\n");
 	static long	port = 0;				/* port id index	*/
 	ps_port_t	*pp;			/* port pointer		*/
 	ps_task_t	*tp = dummy_task_location;			/* task pointer		*/
@@ -1162,7 +1151,6 @@ SYSCALL	ps_allocate_port(
 	tp->port_list = port;
 	pp->owner = task;
 	pp->tplist = (ps_tp_pair_t *) NULL;
-   printf("Finished ps_allocate_port\n");
 	return(port++);
 }
 
@@ -1201,7 +1189,6 @@ SYSCALL	ps_allocate_shared_port(
 	const	char	*name			/* shared port name	*/
 )
 {
-   printf("In ps_allocate_shared_port\n");
    return 0; // I'll deal with it later
 	char	string[TEMP_STR_SIZE];		/* temp string		*/
 	long	dispatcher;			/* dispatcher task id	*/
@@ -2642,7 +2629,6 @@ SYSCALL	ps_open_stat(
 )
 {
 	long	stat;				/* statistic index	*/
-	//printf("In ps_open_stat\n");
 
 	if(bs_time >= 0.0 && bs_time < ps_now)
 		return(BAD_CALL("Doesn't work once block stats is in effect"));
@@ -3262,7 +3248,6 @@ SYSCALL ps_build_node(
 		return(BAD_PARAM("discipline"));
 
 	node = dump.add_node(name, ncpu, speed, quantum, discipline, sf, ps_now);
-	printf("ps_build_node finished making node # %d!\n", node);
 	// ps_open_stat(stat_name, VARIABLE); // Needs more tuning.
 	return(node);
 }
@@ -3527,11 +3512,9 @@ SYSCALL	ps_run_parasol(
 /*	Build node 0 & launch reaper (& genesis)			*/
 
 	ps_htp = DRIVER_PTR;
-	printf("Before ps_build_node!\n");
 	ps_build_node("PARASOL Node", 1, 1.0, 0.0, PR, FALSE);
 	rid = 1;
 	reaper(nullptr);
-	printf("After reaper!\n");
 	reaper_port = ps_std_port(rid);
 	ps_resume(rid);
 
@@ -4102,9 +4085,7 @@ LOCAL	void	reaper(void*)
 	char	string[TEMP_STR_SIZE];			/* abort string		*/
 
 	/* WCS - 3 Sept 1997 - Made Genesis stack larger */
-	printf("Starting ps_genesis!\n");
 	ps_genesis((void*) 0);
-	printf("After ps_genesis!\n");
 	dump.print_all_stored();
    return;
 }
@@ -4613,7 +4594,6 @@ LOCAL	void	find_host(
 	ps_task_t	*tp			/* task pointer		*/
 )
 {
-   printf("In find_host()\n");
 	ps_node_t	*np;			/* node pointer		*/
 	long	host;				/* host cpu id index	*/
 	long	i;				/* loop index		*/
@@ -4625,15 +4605,12 @@ LOCAL	void	find_host(
 
 	host = NULL_HOST;
 	tp->sched_time = ps_now;		/* Ready to run now!	*/
-	printf("finding node\n");
 	np=node_ptr(tp->node);
-	printf("found dummy node?\n");
 	if(np->discipline==CFS ){
 		find_host_cfs(tp);
 		return;
 	}
 
-   printf("Looking for free host\n");
 /* 	First look for a free host					*/
 	if((np = node_ptr(tp->node))->nfree
 	    && (np->cpu[0].scheduler == NULL_TASK
@@ -4657,7 +4634,6 @@ LOCAL	void	find_host(
 	}
 
 /* 	If necessary look for host with preemptable task		*/
-   printf("Looking for preemptable task\n");
 	phost = NULL_HOST;
 	if(host == NULL_HOST && np->discipline == PR
 	    && (np->cpu[0].scheduler == NULL_TASK
@@ -4735,9 +4711,7 @@ LOCAL	void	find_host(
 	}
 
 /*	If host found, make tp runnable					*/
-   printf("Host found?\n");
 	if(host != NULL_HOST) {
-      printf("Host found\n");
 
 		if(tp->pt_tag == 1)
 	    	{	tp->pt_tag = 0;
@@ -4776,7 +4750,6 @@ LOCAL	void	find_host(
 		}
 	}
 	else {
-      printf("Host not found\n");
 		qxflag = TRUE;
 		ready(tp);
 		qxflag = FALSE;
@@ -4924,19 +4897,13 @@ LOCAL	void	find_host_cfs(
 	tp->sched_time = ps_now;		/* Ready to run now!	*/
 	np=node_ptr(tp->node);
 
-	printf("In find_host_cfs() with tp: %x and np: %x\n", (size_t) tp, (size_t) np);
-
 	/* find a host with a min load */
 	if((host=tp->host)==ANY_HOST){
-      printf("Searching for host\n");
 		host=find_min_load_host(np,tp);
 	}
 	qxflag = TRUE;
 
-	printf("To ready_cfs\n");
 	ready_cfs(host,tp);
-	printf("From ready_cfs\n");
-
 
 	qxflag = FALSE;
 
@@ -4987,7 +4954,6 @@ LOCAL	void	find_host_cfs(
 						    (long *)task);
 			}
 		}
-
 	}
 	else {
 		qxflag = FALSE;
@@ -5139,7 +5105,6 @@ LOCAL	void	find_ready(
 	ps_task_t	*btp, *ctp;		/* task pointers	*/
 	long	host;				/* host cpu id index	*/
 	double	q;				/* cpu quantum		*/
-	printf("In find_ready()\n");
 
 	if(np->discipline==CFS ){
 		find_ready_cfs(np,hp);
@@ -5151,16 +5116,13 @@ LOCAL	void	find_ready(
 	np->rtrq = (np->rtrq + 1) % dump.get_tasks_size();
 	task = np->rtrq;
 	while(task != NULL_TASK) {
-		printf("Searching in find_ready() with task number %d\n", task);
 		if((ctp = ps_task_ptr(task))->host == ANY_HOST
 		    || ctp->host == host || 1)
 			break;
 		btp = ctp;
 		task = ctp->next;
 		}
-	//dummy_node.cpu = dummy_cpu_location; // Even more jank :D
 	hp = dummy_cpu_location;
-	printf("task, node, ctp are %d, %x, %x\n", task, np, ctp);
 	// Just assume no tasks available since I broke everything.
 	if(0){
 	//(task != NULL_TASK && (np->cpu[0].scheduler == NULL_TASK || ctp->priority > MAX_PRIORITY))) {	/* Ready task found	*/
@@ -5388,7 +5350,6 @@ LOCAL	void	ready(
 	ps_task_t	*btp;			/* back task pointer	*/
 	ps_task_t	*ctp;			/* current task pointer	*/
 	ps_node_t	*np;			/* node pointer		*/
-	printf("In ready()\n");
 
 	SET_TASK_STATE(tp, TASK_READY);
 	tp->hp = NULL_HOST_PTR;
@@ -5396,17 +5357,13 @@ LOCAL	void	ready(
 	if(ts_flag)
 		ts_report(tp, "ready");
 	np = node_ptr(tp->node);
-	printf("Found node ptr\n");
 	if(np->discipline == CFS){
-		printf("True\n");
 		task = dump.get_task_index(tp); //tid(tp);
 		enqueue_cfs_task(tp);
 	}
 	else {
-		printf("False\n");
 		task = np->rtrq;
 		if(np->discipline == FCFS) {
-			printf("True\n");
 			while(task != NULL_TASK) {
 				if (true) break;
 				btp = ps_task_ptr(task);
@@ -5414,7 +5371,6 @@ LOCAL	void	ready(
 			}
 		}
 		else {
-			printf("False\n");
 			if(np->discipline == HOL || qxflag){
 				while(task != NULL_TASK &&
 				(ctp = ps_task_ptr(task))->priority >= tp->priority) {
@@ -5443,7 +5399,6 @@ LOCAL	void	ready(
 			btp->next = tid(tp);
 		}
 	}
-	printf("Before ps_send()\n");
 	if (np->cpu[0].scheduler != NULL_TASK
 	    && tp->priority <= MAX_PRIORITY
 	    && (ps_htp == DRIVER_PTR || ps_htp->priority <= MAX_PRIORITY
@@ -5538,7 +5493,6 @@ LOCAL	void	sched(void)
 {
 	ps_event_t	*ep;			/* event pointer	*/
 	ps_task_t	*tp, *ctp;		/* task pointers	*/
-	printf("In sched\n");
 	return; // No scheduling for us.
 
 	ep = calendar;
@@ -6164,7 +6118,6 @@ LOCAL	void	set_task_state(
 	ps_task_state_t	state
 )
 {
-   printf("In set_task_state()\n");
 	if(tp->state == state)
 		return;
 	tp->state = state;
