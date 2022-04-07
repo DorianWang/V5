@@ -49,8 +49,8 @@
 #ifndef	_PARA_PROTOS
 #define	_PARA_PROTOS
 
-#include	<para_types.h>
-#include <para_privates.h>
+#include	<parasol/para_types.h>
+#include <parasol/para_privates.h>
 
 #include "test_storage.h" // The header linkage is now bananas
 
