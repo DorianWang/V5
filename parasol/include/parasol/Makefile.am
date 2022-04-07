@@ -23,10 +23,10 @@ noinst_HEADERS = ansidecl.h \
 	spinlock.h \
 	statistic.h \
 	task.h \
-	test_storage.h \
-	TaskSC.h \
-	Message.h \
-	bumber_consts.h \
-	bumber_shared.h \
-	NodeSC.h
+	../test_storage.h \
+	../TaskSC.h \
+	../Message.h \
+	../bumber_consts.h \
+	../bumber_shared.h \
+	../NodeSC.h
 	
