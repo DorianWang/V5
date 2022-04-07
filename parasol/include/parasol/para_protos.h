@@ -56,7 +56,7 @@
 
 /* Functions defined here for compiling on Windows NT.			*/
 #if !defined(HAVE_DRAND48)
-#include "drand48.h"
+#include "parasol/drand48.h"
 #endif
 
 /* #define LQX_DEBUG set to show r_util growth bug */
