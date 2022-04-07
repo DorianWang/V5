@@ -2,9 +2,9 @@
 #ifndef	TEST_STORAGE_H
 #define	TEST_STORAGE_H
 
-#include	"para_types.h"
+#include	"parasol/para_types.h"
 //#include "para_protos.h"
-#include "para_privates.h"
+#include "parasol/para_privates.h"
 
 #include <vector>
 #include <string>
