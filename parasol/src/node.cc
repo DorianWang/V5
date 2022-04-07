@@ -27,7 +27,7 @@
 //	Created: 27/06/95 (PRM)
 //
 //=======================================================================
-#include <node.h>
+#include <parasol/node.h>
 
 //=======================================================================
 // function:	PS_UserNode:: PS_UserNode(const char*,int,double,double,

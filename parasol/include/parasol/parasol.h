@@ -48,7 +48,7 @@
 #include	<setjmp.h>
 #include	<signal.h>
 #include	<math.h>
-#include	<para_protos.h>
+#include <parasol/para_protos.h>
 #include "test_storage.h"
 
 #if defined(HAVE_MALLOC_H)

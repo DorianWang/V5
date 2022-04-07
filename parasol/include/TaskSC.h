@@ -4,7 +4,7 @@
 #include "bumber_consts.h"
 #include "bumber_shared.h"
 #include "bumbershoot.h"
-#include "para_types.h"
+#include "parasol/para_types.h"
 
 namespace bbs{
 

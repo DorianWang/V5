@@ -24,8 +24,8 @@
 /*  the School of Computer Science at Carleton University.		*/
 /************************************************************************/
 
-#include <para_internals.h>
-#include <para_privates.h>
+#include <parasol/para_internals.h>
+#include <parasol/para_privates.h>
 #include "config.h"
 #include "NodeSC.h"
 #include "bumber_shared.h"

@@ -145,9 +145,9 @@
 /*									*/
 /************************************************************************/
 
-#include "para_internals.h"
-#include "para_privates.h"
-#include "para_protos.h"
+#include "parasol/para_internals.h"
+#include "parasol/para_privates.h"
+#include "parasol/para_protos.h"
 
 #include "test_storage.h"
 
