@@ -1,0 +1,54 @@
+AKA Where to go next
+
+-- What we currently have (@ 2022-04-11)
+"In time, you will know the tragic extent of my failings."
+
+Currently, only the SystemC modules and the most important of the API functions have been implemented.
+The connection to Parasol's C++ interface has not been completed and the system is not functioning.
+The statistics systems are not implemented, but this should not be too hard to do with the current setup.
+The build system is not set up to take a link to the SystemC library, so the path must be hardcoded.
+There is currently no default task scheduler, and no API functions to do so.
+
+-- What are things supposed to do now?
+Most of the bumbershoot internals are under the "bbs" namespace to avoid issues with names elsewhere.
+
+The NodeSC (and CpuSC) classes host tasks (TaskSC) which run SystemC threads. These threads can access
+the created ports, buses, and links to send and receive messages. Tasks can be provided user-defined
+functions so they can run their own code.
+The QueuedPort class simply provides a container associated with a node. It has disciplines for the queue.
+The Bus and Link classes are the ones that regulate sending, delaying messages and providing methods to
+check if they are actually connected to the source and destination nodes.
+There exists a "TestStorage" class which was used to make some of the old parasol code work as stubs,
+and it has not yet been removed as the bumbershoot objects have not been linked up.
+
+
+-- Why are things so... unique?
+The bumbershoot implementation files are .cpp files instead of .cc files because my IDE defaults to them.
+I didn't bother fixing that since it would help me tell them apart anyways.
+
+The Node, Cpu and Task classes have "SC" appended to them to avoid compilation issues 
+with other classes with the same name.
+
+The sc_module derived classes (derived through bbs_sc_module class) 
+use the function "before_end_of_elaboration()" to define their SystemC module sensitivities to avoid
+hierarchical name issues. If those were placed in the constructor then the table constructor method
+would print out warnings that an SC_METHOD has already been created with the same name.
+
+Messages (bs_message_t) are pretty much POD, but they are generally pulled from the message pool.
+All the classes that inherit from the base SystemC module are stored using the bm_table_t class,
+and referenced using index to avoid any copy or move constructors.
+
+The math library should be linked in addition to the SystemC library.
+As dynamic sc_threads exist in the program, the build system must provide the global define:
+-D SC_INCLUDE_DYNAMIC_PROCESSES
+
+-- What were things supposed to do when the project was complete?
+LQSim loads the model from the input file using LQIOlib
+LQSim creates objects and connections which represent the model (Check model.cc, Model::prepare())
+LQSim then instantiates the model (model.cc, Model::create()), which will also call parasol functions
+	These parasol functions would create bumbershoot objects that will simulate the given object.
+Then LQSim calls the starting function for parasol (which would be replaced with a call to sc_start())
+Run Simulation Here
+After this, all statistics should be collected and written to the output file using LQIOlib
+All debug statistics will be printed and then the program would end.
+
