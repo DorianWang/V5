@@ -56,7 +56,7 @@ void code_tester(void* tvPtr)
    uint_fast32_t mres;
    bbs::get_message_from_port(tvPtr, bbs::bm_task_tab[tPtr->taskIndex].port_list[0], &mres);
    std::string received = bbs::bs_mess_pool[mres].text;
-   std::cout << tPtr->parentName << ": " << sc_time_stamp() << " @ Received message: " << received << std::endl;
+   std::cout << tPtr->parentName << ": Received message: " << received << " @ " << sc_time_stamp() << std::endl;
 
    wait(40, DEFAULT_TIME_TICK);
 }
@@ -77,7 +77,7 @@ void return_tester(void* tvPtr)
       if (bbs::send_link(tvPtr, *(bbs::bm_node_tab[tPtr->nodeIndex].linkSrcIDs.begin()),
                          bbs::bs_mess_pool[mres].ack_port, 0, 2800, tosend,
                          bbs::bm_task_tab[tPtr->taskIndex].port_list[0]) == bbs::FUNC_GOOD){
-         std::cout << tPtr->parentName << ": " << sc_time_stamp() << " @ send_link success!" << std::endl;
+         std::cout << tPtr->parentName << ": send_link success! @ " << sc_time_stamp() << std::endl;
       }
    }
    else {
