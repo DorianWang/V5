@@ -9,7 +9,6 @@ void Bus::send_message(){
    mq.pop();
    bs_message_t& mref = bs_mess_pool[messID];
    bm_port_vec[mref.port].receive_message(messID);
-   std::cout << "sent message to port " << mref.port << std::endl;
    if (mq.size() != 0){
       bs_message_t& mref2 = bs_mess_pool[mq.front()];
       if (mref2.length == 0){

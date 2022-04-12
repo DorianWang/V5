@@ -24,11 +24,12 @@ public:
 
    void killer(){
       wait(endValue, DEFAULT_TIME_TICK);
+      std::cout << sc_time_stamp() << std::endl;
       sc_stop();
    };
    TopModule(sc_module_name name, uint_fast64_t endValue) : sc_module(name), endValue(endValue){
       SC_HAS_PROCESS(TopModule);
-      SC_METHOD(killer);
+      SC_THREAD(killer);
       sensitive << endSim;
       dont_initialize();
    }
@@ -36,45 +37,50 @@ public:
 
 #ifdef BUMBERSHOOT_TESTING
 
-
 void code_tester(void* tvPtr)
 {
-   std::cout << sc_time_stamp() << " @ Testing send!" << std::endl;
+   std::cout << sc_time_stamp() << " @ Testing Client!" << std::endl;
    bbs::TaskThread* tPtr = reinterpret_cast<bbs::TaskThread*>(tvPtr);
-   // std::cout << tPtr->parentName << ": " << tPtr->taskIndex << std::endl;
-   if (bbs::send_link(tvPtr, 0, 1, 0, 28000, "Hello!", 0) == bbs::FUNC_GOOD){
-      std::cout << "send_link success" << std::endl;
+   auto linkID = bbs::bm_node_tab[tPtr->nodeIndex].linkSrcIDs.begin();
+   size_t val = *linkID;
+   size_t port = bbs::bm_task_tab[tPtr->taskIndex].port_list[0];
+   if (bbs::send_link(tvPtr, val, 3, 0, 28000, "Hello!", port) == bbs::FUNC_GOOD){
+      // Uses hardcoded port for now, would need broadcast for proper port finding.
+      std::cout << tPtr->parentName << ": " << "sent message into link @ " << sc_time_stamp() << std::endl;
    }
-   int res = bbs::wait_for_message(tvPtr, 0, -1);
+   std::cout<< tPtr->parentName << ": waiting for message at port " << bbs::bm_task_tab[tPtr->taskIndex].port_list[0] << " @ " << sc_time_stamp() << std::endl;
+   int res = bbs::wait_for_message(tvPtr, bbs::bm_task_tab[tPtr->taskIndex].port_list[0], -1);
    if (res != bbs::FUNC_GOOD){
-      std::cout << "waiting for message was interrupted @ " << sc_time_stamp() << std::endl;
+      std::cout << tPtr->parentName << ": " << "waiting for message was interrupted @ " << sc_time_stamp() << std::endl;
    }
    uint_fast32_t mres;
-   bbs::get_message_from_port(tvPtr, 0, &mres);
+   bbs::get_message_from_port(tvPtr, bbs::bm_task_tab[tPtr->taskIndex].port_list[0], &mres);
    std::string received = bbs::bs_mess_pool[mres].text;
-   std::cout << sc_time_stamp() << " @ Received message: " << received << std::endl;
+   std::cout << tPtr->parentName << ": " << sc_time_stamp() << " @ Received message: " << received << std::endl;
 
    wait(40, DEFAULT_TIME_TICK);
 }
 
 void return_tester(void* tvPtr)
 {
-   std::cout << sc_time_stamp() << " @ Testing receive -> return!" << std::endl;
+   std::cout << sc_time_stamp() << " @ Testing Server!" << std::endl;
    bbs::TaskThread* tPtr = reinterpret_cast<bbs::TaskThread*>(tvPtr);
-   int res = bbs::wait_for_message(tvPtr, 1, -1); // Wait for message on port 1.
+   std::cout<< tPtr->parentName << ": waiting for message at port " << bbs::bm_task_tab[tPtr->taskIndex].port_list[0] << " @ " << sc_time_stamp() << std::endl;
+   int res = bbs::wait_for_message(tvPtr, bbs::bm_task_tab[tPtr->taskIndex].port_list[0], -1); // Wait for message on port.
    if (res == bbs::FUNC_GOOD){
-      std::cout << sc_time_stamp() << " @ Sending return message!" << std::endl;
       uint_fast32_t mres;
-      bbs::get_message_from_port(tvPtr, 1, &mres);
+      bbs::get_message_from_port(tvPtr, bbs::bm_task_tab[tPtr->taskIndex].port_list[0], &mres);
       std::string received = bbs::bs_mess_pool[mres].text;
+
       std::string tosend = received + " Hey There!";
-      std::cout << "Received message: " << received << ", Sending message: " << tosend << std::endl;
-      if (bbs::send_bus(tvPtr, 0, 0, 0, 2800, tosend, 0) == bbs::FUNC_GOOD){
-         std::cout << sc_time_stamp() << " @ send_bus success" << std::endl;
+      std::cout << tPtr->parentName << ": " << "Received message: " << received << ", Sending message: " << tosend << std::endl;
+      if (bbs::send_link(tvPtr, *(bbs::bm_node_tab[tPtr->nodeIndex].linkSrcIDs.begin()),
+                         bbs::bs_mess_pool[mres].ack_port, 0, 2800, tosend,
+                         bbs::bm_task_tab[tPtr->taskIndex].port_list[0]) == bbs::FUNC_GOOD){
+         std::cout << tPtr->parentName << ": " << sc_time_stamp() << " @ send_link success!" << std::endl;
       }
    }
    else {
-      // std::cout << "Ow!" << std::endl;
       std::cout << res << std::endl;
       // It would wait if interrupted, or print errors if it was FUNC_ERR
    }
@@ -85,7 +91,33 @@ int sc_main(int argc, char** argv)
 {
    using namespace bbs;
 
+   std::cout << "Before simulation!" << std::endl;
+
    TopModule testing("TopModule", 0);
+   testing.endValue = TICK_CONV_MULT * TICK_CONV_MULT;
+   testing.endSim.notify(SC_ZERO_TIME); // Start sim timer immediately.
+
+   size_t firstNode = bbs::bs_build_node("Node0", 1, 8, 1, bbs::BS_FIFO, 1);
+   size_t secondNode = bbs::bs_build_node("Node1", 1, 8, 1, bbs::BS_FIFO, 1);
+   size_t firstLink = bbs::bs_build_link("Link0", 280);
+   size_t secondLink = bbs::bs_build_link("Link1", 560);
+
+   bbs::bs_connect_link(firstLink, firstNode, secondNode);
+   bbs::bs_connect_link(secondLink, secondNode, firstNode);
+
+
+   size_t firstTask = bbs::bs_build_task(std::string("Client"), firstNode, 0, code_tester);
+   size_t secondTask = bbs::bs_build_task(std::string("Server"), secondNode, 0, return_tester);
+
+   size_t firstPort = bbs::bs_build_port(NULL_INDEX, firstNode, firstTask);
+   size_t secondPort = bbs::bs_build_port(NULL_INDEX, secondNode, secondTask);
+
+   bbs::bs_assign_task(firstNode, firstTask, 0);
+   bbs::bs_assign_task(secondNode, secondTask, 0);
+
+   bbs::assign_port(firstPort, firstTask);
+   bbs::assign_port(secondPort, secondTask);
+
    std::cout << "Starting simulation!" << std::endl;
    sc_start();
 
@@ -127,7 +159,7 @@ namespace bbs{
                      double quantum, QDiscipline discipline, int statFlag)
    {
       size_t index;
-      if (ncpus < 1 || speed < 0.0 || quantum < 0.0) return NULL_INDEX;
+      if (ncpus < 1 || speed <= 0.0 || quantum <= 0.0) return NULL_INDEX;
       if (name.length()){
          index = bm_node_tab.add_entry(name);
       }
@@ -173,7 +205,7 @@ namespace bbs{
       return bm_link_tab.size() - 1;
    }
 
-   size_t bs_build_task(std::string name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*))
+   size_t bs_build_task(const std::string& name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*))
    {
       if (name.length()){
          bm_task_tab.add_entry(name);
@@ -192,7 +224,7 @@ namespace bbs{
       if (task >= bm_task_tab.size()) return FUNC_ERR;
       NodeSC& nref = bm_node_tab[node];
       TaskSC& tref = bm_task_tab[task];
-      TaskThread* newThread = new TaskThread(nref.BSname + '_' + tref.BSname, node, host, task);
+      TaskThread* newThread = new TaskThread(nref.BSname + "_" + tref.BSname, node, host, task);
       if (newThread == nullptr) return FUNC_ERR;
       nref.rtrq.push_back(newThread);
       tref.state = BS_READY; tref.node = node; tref.host = host;
@@ -287,7 +319,6 @@ namespace bbs{
       }
       if (timeout < 0){
          tPtr->state = BS_BLOCKED;
-         std::cout << "Waiting for message at port " << portIndex << " @ " << sc_time_stamp() << std::endl;
          wait(*(port.message_ready) | tPtr->wakeUp);
          if (tPtr->state == BS_PREEMPTED) return FUNC_INTR; // Interrupted
          tPtr->state = BS_COMPUTING;
@@ -316,7 +347,6 @@ namespace bbs{
 
    int send_link(void* tvPtr, uint_fast32_t link, uint_fast32_t port, uint_fast32_t type, uint_fast32_t length, const std::string& text, uint_fast32_t ackPort)
    {
-      std::cout << "Sending message!" << std::endl;
       if (port >= bm_port_vec.size()) return FUNC_ERR;
       if (link >= bm_link_tab.size()) return FUNC_ERR;
       Link& linkRef = bm_link_tab.at(link);
@@ -326,7 +356,6 @@ namespace bbs{
       uint_fast32_t index = bs_mess_pool.get_mess();
       bs_mess_pool[index] = bs_message_t {tPtr->taskIndex, port, ackPort, BS_LINK, link, type, length, bs_mess_pool.get_next_mid(), DEFAULT_DYE_ID, DEFAULT_PRIORITY, sc_time_stamp().value(), text};
       linkRef.push_message(index);
-      std::cout << "Sent a message using a link @ " << sc_time_stamp().value() / 1000 << "ns" << std::endl;
       return FUNC_GOOD;
    }
 

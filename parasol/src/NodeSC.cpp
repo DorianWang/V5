@@ -86,38 +86,39 @@ void NodeSC::check_schedule()
       break;
    }
 }
-   // Returns a random link from the set of shared links
-   size_t NodeSC::check_if_share_link(const NodeSC& otherNode)
-   {
-      std::vector <uint_fast32_t> sharedLinks;
-      std::set_intersection(linkSrcIDs.begin(), linkSrcIDs.end(), otherNode.linkDstIDs.begin(),
-                           otherNode.linkDstIDs.end(), std::back_inserter(sharedLinks));
-      if (sharedLinks.size() == 0){
-         return NULL_INDEX;
-      }
-      size_t rand = sharedLinks.size() * drand48(); // Value from (0, sharedLinks.size - 1)
-      return sharedLinks[rand];
-   }
 
-   // Returns a random bus from the set of shared buses
-   size_t NodeSC::check_if_share_bus(const NodeSC& otherNode)
-   {
-      std::vector <uint_fast32_t> sharedBuses;
-      std::set_intersection(busIDs.begin(), busIDs.end(), otherNode.busIDs.begin(),
-                           otherNode.busIDs.end(), std::back_inserter(sharedBuses));
-      if (sharedBuses.size() == 0){
-         return NULL_INDEX;
-      }
-      size_t rand = sharedBuses.size() * drand48(); // Value from (0, sharedLinks.size - 1)
-      return sharedBuses[rand];
+// Returns a random link from the set of shared links
+size_t NodeSC::check_if_share_link(const NodeSC& otherNode)
+{
+   std::vector <uint_fast32_t> sharedLinks;
+   std::set_intersection(linkSrcIDs.begin(), linkSrcIDs.end(), otherNode.linkDstIDs.begin(),
+                        otherNode.linkDstIDs.end(), std::back_inserter(sharedLinks));
+   if (sharedLinks.size() == 0){
+      return NULL_INDEX;
    }
+   size_t rand = sharedLinks.size() * drand48(); // Value from (0, sharedLinks.size - 1)
+   return sharedLinks[rand];
+}
 
-   bool NodeSC::remove_bus_connection(uint_fast32_t bus)
-   {
-      int res = busIDs.erase(bus);
-      if (res) return true;
-      return false;
+// Returns a random bus from the set of shared buses
+size_t NodeSC::check_if_share_bus(const NodeSC& otherNode)
+{
+   std::vector <uint_fast32_t> sharedBuses;
+   std::set_intersection(busIDs.begin(), busIDs.end(), otherNode.busIDs.begin(),
+                        otherNode.busIDs.end(), std::back_inserter(sharedBuses));
+   if (sharedBuses.size() == 0){
+      return NULL_INDEX;
    }
+   size_t rand = sharedBuses.size() * drand48(); // Value from (0, sharedLinks.size - 1)
+   return sharedBuses[rand];
+}
+
+bool NodeSC::remove_bus_connection(uint_fast32_t bus)
+{
+   int res = busIDs.erase(bus);
+   if (res) return true;
+   return false;
+}
 
 
 

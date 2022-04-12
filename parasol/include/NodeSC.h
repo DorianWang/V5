@@ -65,6 +65,7 @@ public:
    bool remove_bus_connection(uint_fast32_t bus);
 
    void init(int ncpus, double speed, double quantum, QDiscipline discipline, int statFlag){
+      SC_HAS_PROCESS(CpuSC);
       this->discipline = discipline;
       std::string baseCPUName = this->BSname + "_cpu";
       cpus.init(ncpus, [=](const char*, size_t i){return new CpuSC(baseCPUName + std::to_string(i), this, i);});

@@ -7,11 +7,9 @@
 #include <exception>
 #include <cstddef>   // Used for std::max_align_t
 
-
-
 /**
-Holds all the shared tables except for the message pool, as that is managed and shared in Message.h.
-Also defines all the helper functions for finding IDs from pointers, pointers from IDs, etc.
+Declares all the shared tables except for the message pool, which is in Message.h.
+Also has the base sc_module class and the stats class.
 **/
 
 namespace bbs{
@@ -27,7 +25,9 @@ class bbs_sc_module : public sc_module {
    // This class is used to store the index of objects.
    // Otherwise it just passes through name to sc_module.
 public:
-   bbs_sc_module(sc_module_name name, size_t index) : sc_module(name), index(index){};
+   bbs_sc_module(sc_module_name name, size_t index) : sc_module(name), index(index){
+      this->BSname = std::string(this->name());
+   };
    size_t get_index() const { return index; };
    void set_index(size_t newIndex){ index = newIndex; };
    std::string BSname;
@@ -132,6 +132,13 @@ public:
       while (numStored + num_create > maxStored){
          add_page();
       }
+      if (num_create == 1){
+         T* newObj = new(table[numStored / PAGE_SIZE] + (numStored % PAGE_SIZE)) T(namePrefix, numStored);
+         if (newObj == nullptr)
+            throw std::runtime_error(namePrefix + " table: failed to allocate object in table!");// Panic and die.
+         numStored++;
+         return numStored - 1;
+      }
       for (int i = 0; i < num_create; i++){
          T* newObj = new(table[numStored / PAGE_SIZE] + (numStored % PAGE_SIZE)) T(namePrefix + std::to_string(numStored), numStored);
          if (newObj == nullptr)
@@ -145,7 +152,13 @@ public:
       if (num_create <= 0) throw std::out_of_range(namePrefix + " num_create value not positive!");
       for (int i = 0; i < num_create; i++){
          if (numStored == maxStored) add_page();
-         std::string tempName = name + std::to_string(i);
+         std::string tempName;
+         if (num_create == 1){
+            tempName = name;
+         }
+         else{
+            tempName = name + std::to_string(i);
+         }
          void* tempPtr = table[numStored / PAGE_SIZE] + (numStored % PAGE_SIZE);
          T* newObj = new(tempPtr) T(tempName, numStored);
          if (newObj == nullptr)
@@ -168,7 +181,7 @@ public:
       return table[index / PAGE_SIZE][index % PAGE_SIZE];
    }
    T& back(){
-      return table[numStored - 1 / PAGE_SIZE][numStored - 1 / PAGE_SIZE];
+      return table[(numStored - 1) / PAGE_SIZE][(numStored - 1) % PAGE_SIZE];
    }
 
    iterator begin() { return bm_table_t_IType(*this, 0); }

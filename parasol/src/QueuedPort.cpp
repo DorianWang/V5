@@ -58,7 +58,7 @@ int QueuedPort::get_message(uint_fast32_t* message, QDiscipline curDisc)
 
 void QueuedPort::receive_message(uint_fast32_t message)
 {
-   std::cout << "Received a new message" << " @ " << sc_time_stamp().value() / TICK_CONV_MULT << "ns" << std::endl;
+   std::cout << "Port " << this->get_index() << " Received a new message @ " << sc_time_stamp().value() / TICK_CONV_MULT << "ns" << std::endl;
    if (mq.size() == 0){
       mq.push_back(message);
       message_ready->notify(SC_ZERO_TIME);

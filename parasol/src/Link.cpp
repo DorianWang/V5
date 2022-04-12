@@ -8,7 +8,6 @@ namespace bbs{
 void Link::transfer_message(){
    uint_fast32_t mid = mq.front();
    mq.pop();
-   std::cout << "In transfer_message" << std::endl;
    if (mid < bs_mess_pool.size()){
       bs_message_t& mess = bs_mess_pool[mid];
       if (mess.port < bm_port_vec.size()){
@@ -43,7 +42,6 @@ void Link::transfer_message(){
 void Link::push_message(uint_fast32_t mess_index)
 {
    bs_message_t* mess = bs_mess_pool.get_mp(mess_index);
-   std::cout << "In push_message" << std::endl;
    if (mess == nullptr){
       // Panic and die?
    }

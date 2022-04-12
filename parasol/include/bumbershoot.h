@@ -1,28 +1,29 @@
 #ifndef BUMBERSHOOT_H_INCLUDED
 #define BUMBERSHOOT_H_INCLUDED
-/// This should have all the functions and includes that a user of the library will need.
+/// This header should declare all functions and includes that a user of the library will need.
 #include "bumber_consts.h"
 #include "bumber_shared.h"
 
-
-void code_tester(void* tPtr);
-void return_tester(void* tPtr);
+#ifdef BUMBERSHOOT_TESTING
+   void code_tester(void* tPtr);
+   void return_tester(void* tPtr);
+#endif
 
 namespace bbs{
 
    // SystemC types, need special attention. Return value is index used to access, or NULL_INDEX.
-   size_t bs_build_node(uint_fast32_t* index, const std::string& name, int ncpus, double speed,
+   size_t bs_build_node(const std::string& name, int ncpus, double speed,
                      double quantum, QDiscipline discipline, int statFlag);
    size_t bs_build_port(int stat, size_t dst_node = 0, size_t assoc_task = 0, QDiscipline discipline = BS_FIFO);
    size_t bs_build_bus(std::string name, int_fast64_t trate, QDiscipline discipline = BS_FIFO);
    size_t bs_build_link(std::string name, int_fast64_t trate);
    // Technically does not need a sc_module, but TaskThread is linked with it.
-   size_t bs_build_task(std::string name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*));
+   size_t bs_build_task(const std::string& name, uint_fast32_t node, uint_fast32_t host, void (*code)(void*));
    // Builds a TaskThread, which creates SystemC threads.
    int bs_assign_task(uint_fast32_t node, uint_fast32_t task, uint_fast32_t host = NULL_INDEX);
 
 
-   int bs_connect_link(uint_fast32_t src, uint_fast32_t dst);
+   int bs_connect_link(uint_fast32_t link, uint_fast32_t src, uint_fast32_t dst);
    int bs_connect_bus(uint_fast32_t bus, uint_fast32_t node);
    int bs_disconnect_bus(uint_fast32_t node);
 

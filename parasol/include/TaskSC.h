@@ -69,12 +69,13 @@ struct TaskThread
       TaskSC& task = bm_task_tab.at(taskIndex);
       if (state == BS_COMPUTING) resume.notify(SC_ZERO_TIME); // Do not immediately run unless it is actually set to run.
       // It is possible to keep the handle of the spawned thread if desired, but I don't need it for now.
-      sc_spawn(sc_bind(&TaskThread::run_task, this), task.BSname.c_str(), &opt);
+      sc_spawn(sc_bind(&TaskThread::run_task, this), parentName.c_str(), &opt);
    };
 
    void run_task(){
       if (state == BS_READY || state == BS_SUSPENDED){
-         wait(resume);
+         this->resume.notify(SC_ZERO_TIME); // Just brute force this for now.
+         wait(this->resume);
          state = BS_COMPUTING;
       }
       TaskSC& task = bm_task_tab.at(taskIndex);
